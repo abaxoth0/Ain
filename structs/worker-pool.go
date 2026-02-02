@@ -27,6 +27,7 @@ type WorkerPool struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       *sync.WaitGroup
+	wgMu     sync.Mutex
 	once     sync.Once
 	stopOnce sync.Once
 	opt      *WorkerPoolOptions
@@ -83,7 +84,7 @@ func (wp *WorkerPool) stop() error {
 			if !ok {
 				return nil
 			}
-			wp.process(tasks)
+			wp.executeTasks(tasks)
 		}
 	}
 }
@@ -111,9 +112,15 @@ func (wp *WorkerPool) work() {
 }
 
 func (wp *WorkerPool) process(tasks []Task) {
+	wp.wgMu.Lock()
 	wp.wg.Add(1)
+	wp.wgMu.Unlock()
 	defer wp.wg.Done()
 
+	wp.executeTasks(tasks)
+}
+
+func (wp *WorkerPool) executeTasks(tasks []Task) {
 	for _, task := range tasks {
 		task.Process()
 	}
@@ -133,9 +140,9 @@ func (wp *WorkerPool) Cancel() error {
 
 	wp.canceled.Store(true)
 	wp.cancel()
-	// Fixed: WaitGroup reuse issue by using stopOnce.Do() in work() method
-	// to ensure stop() is only called once from a single worker goroutine
+	wp.wgMu.Lock()
 	wp.wg.Wait()
+	wp.wgMu.Unlock()
 
 	return nil
 }
