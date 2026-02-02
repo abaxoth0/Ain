@@ -1,0 +1,1007 @@
+package logger
+
+import (
+	"bytes"
+	"log"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+type mockLogger struct {
+	entries []*LogEntry
+	mu      sync.Mutex
+}
+
+func (m *mockLogger) Log(entry *LogEntry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entries = append(m.entries, entry)
+}
+
+func (m *mockLogger) log(entry *LogEntry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entries = append(m.entries, entry)
+}
+
+func (m *mockLogger) getEntries() []*LogEntry {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]*LogEntry{}, m.entries...)
+}
+
+func (m *mockLogger) clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entries = nil
+}
+
+func TestLogLevelString(t *testing.T) {
+	t.Run("trace level", func(t *testing.T) {
+		if TraceLogLevel.String() != "TRACE" {
+			t.Errorf("Expected TRACE, got %s", TraceLogLevel.String())
+		}
+	})
+
+	t.Run("debug level", func(t *testing.T) {
+		if DebugLogLevel.String() != "DEBUG" {
+			t.Errorf("Expected DEBUG, got %s", DebugLogLevel.String())
+		}
+	})
+
+	t.Run("info level", func(t *testing.T) {
+		if InfoLogLevel.String() != "INFO" {
+			t.Errorf("Expected INFO, got %s", InfoLogLevel.String())
+		}
+	})
+
+	t.Run("warning level", func(t *testing.T) {
+		if WarningLogLevel.String() != "WARNING" {
+			t.Errorf("Expected WARNING, got %s", WarningLogLevel.String())
+		}
+	})
+
+	t.Run("error level", func(t *testing.T) {
+		if ErrorLogLevel.String() != "ERROR" {
+			t.Errorf("Expected ERROR, got %s", ErrorLogLevel.String())
+		}
+	})
+
+	t.Run("fatal level", func(t *testing.T) {
+		if FatalLogLevel.String() != "FATAL" {
+			t.Errorf("Expected FATAL, got %s", FatalLogLevel.String())
+		}
+	})
+
+	t.Run("panic level", func(t *testing.T) {
+		if PanicLogLevel.String() != "PANIC" {
+			t.Errorf("Expected PANIC, got %s", PanicLogLevel.String())
+		}
+	})
+}
+
+func TestLogLevelGetColour(t *testing.T) {
+	t.Run("trace colour", func(t *testing.T) {
+		if TraceLogLevel.getColour() != "34" {
+			t.Errorf("Expected 34, got %s", TraceLogLevel.getColour())
+		}
+	})
+
+	t.Run("debug colour", func(t *testing.T) {
+		if DebugLogLevel.getColour() != "36" {
+			t.Errorf("Expected 36, got %s", DebugLogLevel.getColour())
+		}
+	})
+
+	t.Run("info colour", func(t *testing.T) {
+		if InfoLogLevel.getColour() != "32" {
+			t.Errorf("Expected 32, got %s", InfoLogLevel.getColour())
+		}
+	})
+
+	t.Run("warning colour", func(t *testing.T) {
+		if WarningLogLevel.getColour() != "33" {
+			t.Errorf("Expected 33, got %s", WarningLogLevel.getColour())
+		}
+	})
+
+	t.Run("error colour", func(t *testing.T) {
+		if ErrorLogLevel.getColour() != "31" {
+			t.Errorf("Expected 31, got %s", ErrorLogLevel.getColour())
+		}
+	})
+
+	t.Run("fatal colour", func(t *testing.T) {
+		if FatalLogLevel.getColour() != "35" {
+			t.Errorf("Expected 35, got %s", FatalLogLevel.getColour())
+		}
+	})
+
+	t.Run("panic colour", func(t *testing.T) {
+		if PanicLogLevel.getColour() != "35" {
+			t.Errorf("Expected 35, got %s", PanicLogLevel.getColour())
+		}
+	})
+}
+
+func TestNewLogEntry(t *testing.T) {
+	t.Run("basic log entry", func(t *testing.T) {
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+
+		if entry.Message != "test message" {
+			t.Errorf("Expected 'test message', got %s", entry.Message)
+		}
+		if entry.Source != "test_source" {
+			t.Errorf("Expected 'test_source', got %s", entry.Source)
+		}
+		if entry.Level != "INFO" {
+			t.Errorf("Expected 'INFO', got %s", entry.Level)
+		}
+		if entry.Error != "" {
+			t.Errorf("Expected empty error, got %s", entry.Error)
+		}
+	})
+
+	t.Run("log entry with error", func(t *testing.T) {
+		entry := NewLogEntry(ErrorLogLevel, "test_source", "error message", "error details", nil)
+
+		if entry.Message != "error message" {
+			t.Errorf("Expected 'error message', got %s", entry.Message)
+		}
+		if entry.Error != "error details" {
+			t.Errorf("Expected 'error details', got %s", entry.Error)
+		}
+	})
+
+	t.Run("info log entry ignores error", func(t *testing.T) {
+		entry := NewLogEntry(InfoLogLevel, "test_source", "info message", "error details", nil)
+
+		if entry.Error != "" {
+			t.Errorf("Expected empty error, got %s", entry.Error)
+		}
+	})
+
+	t.Run("log entry with meta", func(t *testing.T) {
+		meta := map[string]interface{}{"key": "value"}
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", meta)
+
+		if entry.Meta["key"] != "value" {
+			t.Errorf("Expected meta 'key' to be 'value'")
+		}
+	})
+}
+
+func TestServiceName(t *testing.T) {
+	t.Run("set and get service name", func(t *testing.T) {
+		original := GetApplicationName()
+		defer SetApplicationName(original)
+
+		SetApplicationName("test-service")
+		if GetApplicationName() != "test-service" {
+			t.Errorf("Expected 'test-service', got %s", GetApplicationName())
+		}
+	})
+
+	t.Run("trim whitespace from service name", func(t *testing.T) {
+		original := GetApplicationName()
+		defer SetApplicationName(original)
+
+		SetApplicationName("  test-service  ")
+		if GetApplicationName() != "test-service" {
+			t.Errorf("Expected 'test-service', got %s", GetApplicationName())
+		}
+	})
+
+	t.Run("empty service name is ignored", func(t *testing.T) {
+		original := GetApplicationName()
+		SetApplicationName("")
+		if GetApplicationName() != original {
+			t.Errorf("Service name should not change with empty input")
+		}
+	})
+
+	t.Run("whitespace only service name is ignored", func(t *testing.T) {
+		original := GetApplicationName()
+		SetApplicationName("   \r\n")
+		if GetApplicationName() != original {
+			t.Errorf("Service name should not change with whitespace-only input")
+		}
+	})
+}
+
+func TestServiceInstance(t *testing.T) {
+	t.Run("set and get service instance", func(t *testing.T) {
+		original := GetApplicationInstance()
+		defer SetApplicationInstance(original)
+
+		SetApplicationInstance("test-instance")
+		if GetApplicationInstance() != "test-instance" {
+			t.Errorf("Expected 'test-instance', got %s", GetApplicationInstance())
+		}
+	})
+
+	t.Run("trim whitespace from service instance", func(t *testing.T) {
+		original := GetApplicationInstance()
+		defer SetApplicationInstance(original)
+
+		SetApplicationInstance("  test-instance  ")
+		if GetApplicationInstance() != "test-instance" {
+			t.Errorf("Expected 'test-instance', got %s", GetApplicationInstance())
+		}
+	})
+
+	t.Run("empty service instance is ignored", func(t *testing.T) {
+		original := GetApplicationInstance()
+		SetApplicationInstance("")
+		if GetApplicationInstance() != original {
+			t.Errorf("Service instance should not change with empty input")
+		}
+	})
+}
+
+func TestStringSuffix(t *testing.T) {
+	t.Run("nil meta returns empty string", func(t *testing.T) {
+		suffix := stringSuffix(nil)
+		if suffix != "" {
+			t.Errorf("Expected empty string, got %s", suffix)
+		}
+	})
+
+	t.Run("empty meta returns empty string", func(t *testing.T) {
+		meta := map[string]interface{}{}
+		suffix := stringSuffix(meta)
+		if suffix != "" {
+			t.Errorf("Expected empty string, got %s", suffix)
+		}
+	})
+
+	t.Run("meta with no known properties returns empty string", func(t *testing.T) {
+		meta := map[string]interface{}{"unknown": "value"}
+		suffix := stringSuffix(meta)
+		if suffix != "" {
+			t.Errorf("Expected empty string, got %s", suffix)
+		}
+	})
+
+	t.Run("meta with addr property", func(t *testing.T) {
+		meta := map[string]interface{}{"addr": "192.168.1.1"}
+		suffix := stringSuffix(meta)
+		if !strings.Contains(suffix, "192.168.1.1") {
+			t.Errorf("Expected suffix to contain '192.168.1.1', got %s", suffix)
+		}
+	})
+
+	t.Run("meta with multiple known properties", func(t *testing.T) {
+		meta := map[string]interface{}{
+			"addr":   "192.168.1.1",
+			"method": "GET",
+			"path":   "/api/test",
+		}
+		suffix := stringSuffix(meta)
+		if !strings.Contains(suffix, "192.168.1.1") {
+			t.Errorf("Expected suffix to contain '192.168.1.1', got %s", suffix)
+		}
+		if !strings.Contains(suffix, "GET") {
+			t.Errorf("Expected suffix to contain 'GET', got %s", suffix)
+		}
+		if !strings.Contains(suffix, "/api/test") {
+			t.Errorf("Expected suffix to contain '/api/test', got %s", suffix)
+		}
+	})
+
+	t.Run("meta with non-string values returns empty string", func(t *testing.T) {
+		meta := map[string]interface{}{"addr": 12345}
+		suffix := stringSuffix(meta)
+		if suffix != "" {
+			t.Errorf("Expected empty string for non-string value, got %s", suffix)
+		}
+	})
+}
+
+func TestPreprocess(t *testing.T) {
+	t.Run("debug log when debug disabled returns false", func(t *testing.T) {
+		originalDebug := Debug.Load()
+		defer Debug.Store(originalDebug)
+		Debug.Store(false)
+
+		entry := NewLogEntry(DebugLogLevel, "source", "message", "", nil)
+		result := preprocess(&entry, nil)
+		if result {
+			t.Error("Expected false when debug is disabled")
+		}
+	})
+
+	t.Run("debug log when debug enabled returns true", func(t *testing.T) {
+		originalDebug := Debug.Load()
+		defer Debug.Store(originalDebug)
+		Debug.Store(true)
+
+		entry := NewLogEntry(DebugLogLevel, "source", "message", "", nil)
+		result := preprocess(&entry, nil)
+		if !result {
+			t.Error("Expected true when debug is enabled")
+		}
+	})
+
+	t.Run("trace log when trace disabled returns false", func(t *testing.T) {
+		originalTrace := Trace.Load()
+		defer Trace.Store(originalTrace)
+		Trace.Store(false)
+
+		entry := NewLogEntry(TraceLogLevel, "source", "message", "", nil)
+		result := preprocess(&entry, nil)
+		if result {
+			t.Error("Expected false when trace is disabled")
+		}
+	})
+
+	t.Run("trace log when trace enabled returns true", func(t *testing.T) {
+		originalTrace := Trace.Load()
+		defer Trace.Store(originalTrace)
+		Trace.Store(true)
+
+		entry := NewLogEntry(TraceLogLevel, "source", "message", "", nil)
+		result := preprocess(&entry, nil)
+		if !result {
+			t.Error("Expected true when trace is enabled")
+		}
+	})
+
+	t.Run("info log always returns true", func(t *testing.T) {
+		entry := NewLogEntry(InfoLogLevel, "source", "message", "", nil)
+		result := preprocess(&entry, nil)
+		if !result {
+			t.Error("Expected true for info level")
+		}
+	})
+
+	t.Run("forwards to all loggers", func(t *testing.T) {
+		mock1 := &mockLogger{}
+		mock2 := &mockLogger{}
+		mock3 := &mockLogger{}
+		forwardings := []Logger{mock1, mock2, mock3}
+
+		entry := NewLogEntry(InfoLogLevel, "source", "message", "", nil)
+		preprocess(&entry, forwardings)
+
+		if len(mock1.getEntries()) != 1 {
+			t.Errorf("Expected 1 entry in mock1, got %d", len(mock1.getEntries()))
+		}
+		if len(mock2.getEntries()) != 1 {
+			t.Errorf("Expected 1 entry in mock2, got %d", len(mock2.getEntries()))
+		}
+		if len(mock3.getEntries()) != 1 {
+			t.Errorf("Expected 1 entry in mock3, got %d", len(mock3.getEntries()))
+		}
+	})
+}
+
+func TestNewSource(t *testing.T) {
+	t.Run("create source", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		if source == nil {
+			t.Fatal("Source should not be nil")
+		}
+	})
+
+	t.Run("source info log", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Info("test message", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Message != "test message" {
+			t.Errorf("Expected 'test message', got %s", entries[0].Message)
+		}
+		if entries[0].Source != "test_source" {
+			t.Errorf("Expected 'test_source', got %s", entries[0].Source)
+		}
+		if entries[0].Level != "INFO" {
+			t.Errorf("Expected 'INFO', got %s", entries[0].Level)
+		}
+	})
+
+	t.Run("source debug log", func(t *testing.T) {
+		originalDebug := Debug.Load()
+		defer Debug.Store(originalDebug)
+		Debug.Store(true)
+
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Debug("debug message", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Level != "DEBUG" {
+			t.Errorf("Expected 'DEBUG', got %s", entries[0].Level)
+		}
+	})
+
+	t.Run("source trace log", func(t *testing.T) {
+		originalTrace := Trace.Load()
+		defer Trace.Store(originalTrace)
+		Trace.Store(true)
+
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Trace("trace message", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Level != "TRACE" {
+			t.Errorf("Expected 'TRACE', got %s", entries[0].Level)
+		}
+	})
+
+	t.Run("source warning log", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Warning("warning message", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Level != "WARNING" {
+			t.Errorf("Expected 'WARNING', got %s", entries[0].Level)
+		}
+	})
+
+	t.Run("source error log", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Error("error message", "error details", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Level != "ERROR" {
+			t.Errorf("Expected 'ERROR', got %s", entries[0].Level)
+		}
+		if entries[0].Error != "error details" {
+			t.Errorf("Expected 'error details', got %s", entries[0].Error)
+		}
+	})
+
+	t.Run("source fatal log", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Fatal("fatal message", "fatal details", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Level != "FATAL" {
+			t.Errorf("Expected 'FATAL', got %s", entries[0].Level)
+		}
+		if entries[0].Error != "fatal details" {
+			t.Errorf("Expected 'fatal details', got %s", entries[0].Error)
+		}
+	})
+
+	t.Run("source panic log", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		source.Panic("panic message", "panic details", nil)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Level != "PANIC" {
+			t.Errorf("Expected 'PANIC', got %s", entries[0].Level)
+		}
+		if entries[0].Error != "panic details" {
+			t.Errorf("Expected 'panic details', got %s", entries[0].Error)
+		}
+	})
+
+	t.Run("source log with meta", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		meta := map[string]interface{}{"key": "value"}
+		source.Info("message", meta)
+
+		entries := mock.getEntries()
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry, got %d", len(entries))
+		}
+		if entries[0].Meta["key"] != "value" {
+			t.Errorf("Expected meta 'key' to be 'value'")
+		}
+	})
+}
+
+func TestStdoutLogger(t *testing.T) {
+	t.Run("log entry", func(t *testing.T) {
+		var buf bytes.Buffer
+		originalLogger := Stdout
+
+		logger := log.New(&buf, "", log.Ldate|log.Ltime)
+		Stdout = stdoutLogger{logger: logger}
+
+		defer func() { Stdout = originalLogger }()
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		Stdout.Log(&entry)
+
+		output := buf.String()
+		if !strings.Contains(output, "test message") {
+			t.Errorf("Expected output to contain 'test message', got %s", output)
+		}
+		if !strings.Contains(output, "INFO") {
+			t.Errorf("Expected output to contain 'INFO', got %s", output)
+		}
+	})
+
+	t.Run("log entry with error", func(t *testing.T) {
+		var buf bytes.Buffer
+		originalLogger := Stdout
+
+		logger := log.New(&buf, "", log.Ldate|log.Ltime)
+		Stdout = stdoutLogger{logger: logger}
+
+		defer func() { Stdout = originalLogger }()
+
+		entry := NewLogEntry(ErrorLogLevel, "test_source", "error message", "error details", nil)
+		Stdout.Log(&entry)
+
+		output := buf.String()
+		if !strings.Contains(output, "error message") {
+			t.Errorf("Expected output to contain 'error message', got %s", output)
+		}
+		if !strings.Contains(output, "error details") {
+			t.Errorf("Expected output to contain 'error details', got %s", output)
+		}
+	})
+
+	t.Run("log entry with meta", func(t *testing.T) {
+		var buf bytes.Buffer
+		originalLogger := Stdout
+
+		logger := log.New(&buf, "", log.Ldate|log.Ltime)
+		Stdout = stdoutLogger{logger: logger}
+
+		defer func() { Stdout = originalLogger }()
+
+		meta := map[string]interface{}{"addr": "192.168.1.1"}
+		entry := NewLogEntry(InfoLogLevel, "test_source", "message", "", meta)
+		Stdout.Log(&entry)
+
+		output := buf.String()
+		if !strings.Contains(output, "192.168.1.1") {
+			t.Errorf("Expected output to contain '192.168.1.1', got %s", output)
+		}
+	})
+}
+
+func TestStderrLogger(t *testing.T) {
+	t.Run("log entry", func(t *testing.T) {
+		var buf bytes.Buffer
+		originalLogger := Stderr
+
+		logger := log.New(&buf, "ERROR: ", log.Ldate|log.Ltime)
+		Stderr = &stderrLogger{logger: logger}
+
+		defer func() { Stderr = originalLogger }()
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		Stderr.Log(&entry)
+
+		output := buf.String()
+		if !strings.Contains(output, "test message") {
+			t.Errorf("Expected output to contain 'test message', got %s", output)
+		}
+		if !strings.Contains(output, "ERROR:") {
+			t.Errorf("Expected output to contain 'ERROR:', got %s", output)
+		}
+	})
+}
+
+func TestFileLogger(t *testing.T) {
+	t.Run("new file logger", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if logger == nil {
+			t.Fatal("Expected logger to be non-nil")
+		}
+	})
+
+	t.Run("new file logger with invalid path", func(t *testing.T) {
+		invalidPath := "/root/nonexistent/path/that/should/fail"
+		_, err := NewFileLogger(invalidPath)
+		if err == nil {
+			t.Error("Expected error for invalid path")
+		}
+	})
+
+	t.Run("init file logger", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+		if !logger.isInit {
+			t.Error("Expected logger to be initialized")
+		}
+	})
+
+	t.Run("start file logger without init fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = logger.Start(false)
+		if err == nil {
+			t.Error("Expected error when starting uninitialized logger")
+		}
+	})
+
+	t.Run("log entry", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		logger.Log(&entry)
+
+		time.Sleep(100 * time.Millisecond)
+		logger.Stop()
+	})
+
+	t.Run("stop file logger without start fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+		err = logger.Stop()
+		if err == nil {
+			t.Error("Expected error when stopping unstarted logger")
+		}
+	})
+
+	t.Run("new forwarding", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		mock := &mockLogger{}
+		err = logger.NewForwarding(mock)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if len(logger.forwardings) != 1 {
+			t.Errorf("Expected 1 forwarding, got %d", len(logger.forwardings))
+		}
+	})
+
+	t.Run("new forwarding with nil logger fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = logger.NewForwarding(nil)
+		if err == nil {
+			t.Error("Expected error when forwarding to nil logger")
+		}
+	})
+
+	t.Run("new forwarding to self fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = logger.NewForwarding(logger)
+		if err == nil {
+			t.Error("Expected error when forwarding to self")
+		}
+	})
+
+	t.Run("new forwarding duplicate fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		mock := &mockLogger{}
+		err = logger.NewForwarding(mock)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = logger.NewForwarding(mock)
+		if err == nil {
+			t.Error("Expected error when adding duplicate forwarding")
+		}
+	})
+
+	t.Run("remove forwarding", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		mock := &mockLogger{}
+		err = logger.NewForwarding(mock)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = logger.RemoveForwarding(mock)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if len(logger.forwardings) != 0 {
+			t.Errorf("Expected 0 forwardings, got %d", len(logger.forwardings))
+		}
+	})
+
+	t.Run("remove non-existent forwarding fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		mock := &mockLogger{}
+		err = logger.RemoveForwarding(mock)
+		if err == nil {
+			t.Error("Expected error when removing non-existent forwarding")
+		}
+	})
+
+	t.Run("remove forwarding with nil fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = logger.RemoveForwarding(nil)
+		if err == nil {
+			t.Error("Expected error when removing nil forwarding")
+		}
+	})
+
+	t.Run("log forwards to all loggers", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		mock1 := &mockLogger{}
+		mock2 := &mockLogger{}
+		logger.NewForwarding(mock1)
+		logger.NewForwarding(mock2)
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		logger.Log(&entry)
+
+		time.Sleep(100 * time.Millisecond)
+
+		if len(mock1.getEntries()) != 1 {
+			t.Errorf("Expected 1 entry in mock1, got %d", len(mock1.getEntries()))
+		}
+		if len(mock2.getEntries()) != 1 {
+			t.Errorf("Expected 1 entry in mock2, got %d", len(mock2.getEntries()))
+		}
+	})
+}
+
+func TestLogTask(t *testing.T) {
+	t.Run("process task", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		task := logTask{entry: &entry, logger: logger}
+		task.Process()
+	})
+}
+
+func TestHandleCritical(t *testing.T) {
+	t.Run("panic level causes panic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				if !strings.Contains(r.(string), "test message") {
+					t.Errorf("Expected panic to contain 'test message', got %v", r)
+				}
+			} else {
+				t.Error("Expected panic to occur")
+			}
+		}()
+
+		entry := NewLogEntry(PanicLogLevel, "source", "test message", "error details", nil)
+		handleCritical(&entry)
+	})
+}
+
+func TestConcurrentLogging(t *testing.T) {
+	t.Run("concurrent source logging", func(t *testing.T) {
+		mock := &mockLogger{}
+		source := NewSource("test_source", mock)
+
+		var wg sync.WaitGroup
+		numGoroutines := 10
+		logsPerGoroutine := 100
+
+		for i := range numGoroutines {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				for range logsPerGoroutine {
+					source.Info("message", nil)
+				}
+			}(i)
+		}
+
+		wg.Wait()
+
+		expectedLogs := numGoroutines * logsPerGoroutine
+		actualLogs := len(mock.getEntries())
+		if actualLogs != expectedLogs {
+			t.Errorf("Expected %d logs, got %d", expectedLogs, actualLogs)
+		}
+	})
+
+	t.Run("concurrent file logger with forwardings", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+
+		mock1 := &mockLogger{}
+		mock2 := &mockLogger{}
+		logger.NewForwarding(mock1)
+		logger.NewForwarding(mock2)
+
+		source := NewSource("test_source", logger)
+
+		var wg sync.WaitGroup
+		numGoroutines := 5
+		logsPerGoroutine := 50
+
+		for i := range numGoroutines {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				for range logsPerGoroutine {
+					source.Info("message", nil)
+				}
+			}(i)
+		}
+
+		wg.Wait()
+
+		time.Sleep(200 * time.Millisecond)
+
+		expectedLogs := numGoroutines * logsPerGoroutine
+		if len(mock1.getEntries()) != expectedLogs {
+			t.Errorf("Expected %d logs in mock1, got %d", expectedLogs, len(mock1.getEntries()))
+		}
+		if len(mock2.getEntries()) != expectedLogs {
+			t.Errorf("Expected %d logs in mock2, got %d", expectedLogs, len(mock2.getEntries()))
+		}
+
+		logger.Stop()
+	})
+}
+
+func TestFileLoggerStart(t *testing.T) {
+	t.Run("start returns error when already started", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+
+		done := make(chan bool)
+		go func() {
+			logger.Start(false)
+			done <- true
+		}()
+
+		time.Sleep(100 * time.Millisecond)
+		if !logger.isRunning.Load() {
+			t.Error("Expected logger to be running")
+		}
+
+		err = logger.Start(false)
+		if err == nil {
+			t.Error("Expected error when starting already started logger")
+		}
+
+		logger.Stop()
+		<-done
+	})
+
+	t.Run("start creates log file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if tmpDir[len(tmpDir)-1] != '/' {
+			tmpDir += "/"
+		}
+		logger, err := NewFileLogger(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error, get %v", err)
+		}
+
+		logger.Init()
+
+		done := make(chan bool)
+		go func() {
+			logger.Start(false)
+			done <- true
+		}()
+
+		time.Sleep(100 * time.Millisecond)
+
+		logger.Stop()
+		<-done
+
+		files, err := os.ReadDir(tmpDir)
+		if err != nil {
+			t.Fatalf("Expected no error reading directory, got %v", err)
+		}
+		if len(files) != 1 {
+			t.Errorf("Expected 1 log file, got %d", len(files))
+		}
+		if len(files) > 0 && !strings.HasSuffix(files[0].Name(), ".log") {
+			t.Errorf("Expected file with .log extension, got %s", files[0].Name())
+		}
+	})
+}
