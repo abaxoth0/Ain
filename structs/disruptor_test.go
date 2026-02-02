@@ -338,10 +338,8 @@ func TestDisruptorConcurrency(t *testing.T) {
 		consumedCount := len(consumed)
 		consumedMu.Unlock()
 
-		// TODO periodically fails
-		// Allow for some variance due to concurrency
-		if consumedCount < totalEntries*7/10 {
-			t.Errorf("Expected at least %d entries consumed, got %d", totalEntries*7/10, consumedCount)
+		if consumedCount != totalEntries {
+			t.Errorf("Expected %d entries consumed, got %d", totalEntries, consumedCount)
 		}
 	})
 
@@ -370,8 +368,8 @@ func TestDisruptorConcurrency(t *testing.T) {
 
 		expectedWriter := int64(numGoroutines*numEntriesPerGoroutine - 1)
 		actualWriter := d.writer.Value.Load()
-		if actualWriter < expectedWriter*7/10 {
-			t.Errorf("Expected writer at least %d, got %d", expectedWriter*7/10, actualWriter)
+		if actualWriter != expectedWriter {
+			t.Errorf("Expected writer at %d, got %d", expectedWriter, actualWriter)
 		}
 	})
 }
