@@ -15,7 +15,7 @@ import (
 type SyncQueue[T comparable] struct {
 	sizeLimit int
 	elems     []T
-	mut       sync.Mutex
+	mut       sync.RWMutex
 	cond      *sync.Cond
 	preserved T
 }
@@ -32,16 +32,12 @@ func NewSyncQueue[T comparable](sizeLimit int) *SyncQueue[T] {
 
 // Appends v to the end of queue
 func (q *SyncQueue[T]) Push(v T) error {
-	// second 'if' is nested to avoid redundant mutex lock\unlock
-	// (Size() method uses mutex) for queues without size limit.
-	// (it may still not do that if place this conditions together, but i'm not sure about that, so better play it safe)
-	if q.sizeLimit > 0 {
-		if q.Size() >= q.sizeLimit {
-			return errors.New("Queue size exceeded")
-		}
-	}
-
 	q.mut.Lock()
+
+	if q.sizeLimit > 0 && len(q.elems) >= q.sizeLimit {
+		q.mut.Unlock()
+		return errors.New("Queue size exceeded")
+	}
 
 	wasEmpty := len(q.elems) == 0
 
@@ -164,9 +160,9 @@ func (q *SyncQueue[T]) PreserveAndPop() (T, bool) {
 }
 
 func (q *SyncQueue[T]) Size() int {
-	q.mut.Lock() // If mutex was locked before this line will cause deadlock, be careful
+	q.mut.RLock()
 	l := len(q.elems)
-	q.mut.Unlock()
+	q.mut.RUnlock()
 	return l
 }
 

@@ -105,14 +105,7 @@ func (l *FileLogger) Start(debug bool) error {
 	go l.disruptor.Consume(l.handler)
 	go l.fallback.Start(fallbackWorkers)
 
-	for {
-		select {
-		case <-l.done:
-			return nil
-		default:
-			time.Sleep(time.Millisecond * 50)
-		}
-	}
+	return nil
 }
 
 func (l *FileLogger) Stop() error {
