@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -24,9 +25,18 @@ const (
 	stopTimeout       = time.Second * 10
 )
 
+type FileLoggerConfig struct {
+	// Path to the directory with logs
+	Path 	 string
+	FilePerm os.FileMode
+
+	*LoggerConfig
+}
+
+const FileLoggerDefaultFilePerm os.FileMode = 0644
+
 // Satisfies Logger and ForwardingLogger interfaces
 type FileLogger struct {
-	dir          string
 	isInit       bool
 	done         chan struct{}
 	isRunning    atomic.Bool
@@ -37,15 +47,31 @@ type FileLogger struct {
 	forwardings  []Logger
 	taskProducer func(entry *LogEntry) *logTask
 	streamPool   sync.Pool
+	config       *FileLoggerConfig
 }
 
-func NewFileLogger(dir string) (*FileLogger, error) {
-	if err := os.MkdirAll(dir, 0640); err != nil {
+func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
+	if config == nil {
+		return nil, errors.New("FileLogger config is nil")
+	}
+	info, err := os.Stat(path.Dir(config.Path))
+	if err != nil {
 		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, errors.New("Specified file isn't directory")
+	}
+	if config.FilePerm == 0 {
+		config.FilePerm = FileLoggerDefaultFilePerm
+	}
+	if err := os.MkdirAll(config.Path, config.FilePerm); err != nil {
+		return nil, err
+	}
+	if config.LoggerConfig == nil {
+		config.LoggerConfig = DefaultConfig
 	}
 
 	logger := &FileLogger{
-		dir:       dir,
 		done:      make(chan struct{}),
 		disruptor: structs.NewDisruptor[*LogEntry](),
 		fallback: structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
@@ -58,6 +84,7 @@ func NewFileLogger(dir string) (*FileLogger, error) {
 				return jsoniter.NewStream(jsoniter.ConfigFastest, nil, 1024)
 			},
 		},
+		config: config,
 	}
 	logger.taskProducer = newTaskProducer(logger)
 
@@ -67,10 +94,14 @@ func NewFileLogger(dir string) (*FileLogger, error) {
 func (l *FileLogger) Init() {
 	fileName := fmt.Sprintf(
 		"%s:%s[%s].log",
-		appName, appInstance, time.Now().Format(time.RFC3339),
+		l.config.ApplicationName, l.config.AppInstance, time.Now().Format(time.RFC3339),
 	)
 
-	f, err := os.OpenFile(l.dir+fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(
+		path.Join(l.config.Path,fileName),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		l.config.FilePerm,
+	)
 	if err != nil {
 		fileLog.Fatal("Failed to initialize log module (can't open/create log file)", err.Error(), nil)
 	}
@@ -83,7 +114,7 @@ func (l *FileLogger) Init() {
 	l.isInit = true
 }
 
-func (l *FileLogger) Start(debug bool) error {
+func (l *FileLogger) Start() error {
 	if !l.isInit {
 		return errors.New("logger isn't initialized")
 	}
@@ -183,7 +214,7 @@ func (l *FileLogger) log(entry *LogEntry) {
 }
 
 func (l *FileLogger) Log(entry *LogEntry) {
-	if !preprocess(entry, l.forwardings) {
+	if !preprocess(entry, l.forwardings, l.config.LoggerConfig) {
 		return
 	}
 

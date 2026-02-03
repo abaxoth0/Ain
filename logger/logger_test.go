@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"bytes"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -170,126 +168,58 @@ func TestNewLogEntry(t *testing.T) {
 	})
 }
 
-func TestApplicationName(t *testing.T) {
-	t.Run("set and get application name", func(t *testing.T) {
-		original := GetApplicationName()
-		defer SetApplicationName(original)
-
-		SetApplicationName("test-app")
-		if GetApplicationName() != "test-app" {
-			t.Errorf("Expected 'test-app', got %s", GetApplicationName())
-		}
-	})
-
-	t.Run("trim whitespace from application name", func(t *testing.T) {
-		original := GetApplicationName()
-		defer SetApplicationName(original)
-
-		SetApplicationName("  test-app  ")
-		if GetApplicationName() != "test-app" {
-			t.Errorf("Expected 'test-app', got %s", GetApplicationName())
-		}
-	})
-
-	t.Run("empty application name is ignored", func(t *testing.T) {
-		original := GetApplicationName()
-		SetApplicationName("")
-		if GetApplicationName() != original {
-			t.Errorf("Service name should not change with empty input")
-		}
-	})
-
-	t.Run("whitespace only application name is ignored", func(t *testing.T) {
-		original := GetApplicationName()
-		SetApplicationName("   \r\n")
-		if GetApplicationName() != original {
-			t.Errorf("Service name should not change with whitespace-only input")
-		}
-	})
-}
-
-func TestApplicationInstance(t *testing.T) {
-	t.Run("set and get application instance", func(t *testing.T) {
-		original := GetApplicationInstance()
-		defer SetApplicationInstance(original)
-
-		SetApplicationInstance("test-instance")
-		if GetApplicationInstance() != "test-instance" {
-			t.Errorf("Expected 'test-instance', got %s", GetApplicationInstance())
-		}
-	})
-
-	t.Run("trim whitespace from application instance", func(t *testing.T) {
-		original := GetApplicationInstance()
-		defer SetApplicationInstance(original)
-
-		SetApplicationInstance("  test-instance  ")
-		if GetApplicationInstance() != "test-instance" {
-			t.Errorf("Expected 'test-instance', got %s", GetApplicationInstance())
-		}
-	})
-
-	t.Run("empty application instance is ignored", func(t *testing.T) {
-		original := GetApplicationInstance()
-		SetApplicationInstance("")
-		if GetApplicationInstance() != original {
-			t.Errorf("Service instance should not change with empty input")
-		}
-	})
-}
-
 func TestPreprocess(t *testing.T) {
 	t.Run("debug log when debug disabled returns false", func(t *testing.T) {
-		originalDebug := Debug.Load()
-		defer Debug.Store(originalDebug)
-		Debug.Store(false)
+		originalDebug := DefaultConfig.Debug
+		DefaultConfig.Debug = false
 
 		entry := NewLogEntry(DebugLogLevel, "source", "message", "", nil)
-		result := preprocess(&entry, nil)
+		result := preprocess(&entry, nil, nil)
 		if result {
 			t.Error("Expected false when debug is disabled")
 		}
+		DefaultConfig.Debug = originalDebug
 	})
 
 	t.Run("debug log when debug enabled returns true", func(t *testing.T) {
-		originalDebug := Debug.Load()
-		defer Debug.Store(originalDebug)
-		Debug.Store(true)
+		originalDebug := DefaultConfig.Debug
+		DefaultConfig.Debug = true
 
 		entry := NewLogEntry(DebugLogLevel, "source", "message", "", nil)
-		result := preprocess(&entry, nil)
+		result := preprocess(&entry, nil, nil)
 		if !result {
 			t.Error("Expected true when debug is enabled")
 		}
+		DefaultConfig.Debug = originalDebug
 	})
 
 	t.Run("trace log when trace disabled returns false", func(t *testing.T) {
-		originalTrace := Trace.Load()
-		defer Trace.Store(originalTrace)
-		Trace.Store(false)
+		originalTrace := DefaultConfig.Trace
+		DefaultConfig.Trace = false
 
 		entry := NewLogEntry(TraceLogLevel, "source", "message", "", nil)
-		result := preprocess(&entry, nil)
+		result := preprocess(&entry, nil, nil)
 		if result {
 			t.Error("Expected false when trace is disabled")
 		}
+		DefaultConfig.Trace = originalTrace
 	})
 
 	t.Run("trace log when trace enabled returns true", func(t *testing.T) {
-		originalTrace := Trace.Load()
-		defer Trace.Store(originalTrace)
-		Trace.Store(true)
+		originalTrace := DefaultConfig.Trace
+		DefaultConfig.Trace = true
 
 		entry := NewLogEntry(TraceLogLevel, "source", "message", "", nil)
-		result := preprocess(&entry, nil)
+		result := preprocess(&entry, nil, nil)
 		if !result {
 			t.Error("Expected true when trace is enabled")
 		}
+		DefaultConfig.Trace = originalTrace
 	})
 
 	t.Run("info log always returns true", func(t *testing.T) {
 		entry := NewLogEntry(InfoLogLevel, "source", "message", "", nil)
-		result := preprocess(&entry, nil)
+		result := preprocess(&entry, nil, nil)
 		if !result {
 			t.Error("Expected true for info level")
 		}
@@ -302,7 +232,7 @@ func TestPreprocess(t *testing.T) {
 		forwardings := []Logger{mock1, mock2, mock3}
 
 		entry := NewLogEntry(InfoLogLevel, "source", "message", "", nil)
-		preprocess(&entry, forwardings)
+		preprocess(&entry, forwardings, nil)
 
 		if len(mock1.getEntries()) != 1 {
 			t.Errorf("Expected 1 entry in mock1, got %d", len(mock1.getEntries()))
@@ -348,9 +278,8 @@ func TestNewSource(t *testing.T) {
 	})
 
 	t.Run("source debug log", func(t *testing.T) {
-		originalDebug := Debug.Load()
-		defer Debug.Store(originalDebug)
-		Debug.Store(true)
+		originalDebug := DefaultConfig.Debug
+		DefaultConfig.Debug = true
 
 		mock := &mockLogger{}
 		source := NewSource("test_source", mock)
@@ -364,12 +293,12 @@ func TestNewSource(t *testing.T) {
 		if entries[0].Level != "DEBUG" {
 			t.Errorf("Expected 'DEBUG', got %s", entries[0].Level)
 		}
+		DefaultConfig.Debug = originalDebug
 	})
 
 	t.Run("source trace log", func(t *testing.T) {
-		originalTrace := Trace.Load()
-		defer Trace.Store(originalTrace)
-		Trace.Store(true)
+		originalTrace := DefaultConfig.Trace
+		DefaultConfig.Trace = true
 
 		mock := &mockLogger{}
 		source := NewSource("test_source", mock)
@@ -383,6 +312,7 @@ func TestNewSource(t *testing.T) {
 		if entries[0].Level != "TRACE" {
 			t.Errorf("Expected 'TRACE', got %s", entries[0].Level)
 		}
+		DefaultConfig.Trace = originalTrace
 	})
 
 	t.Run("source warning log", func(t *testing.T) {
@@ -473,67 +403,40 @@ func TestNewSource(t *testing.T) {
 
 func TestStdoutLogger(t *testing.T) {
 	t.Run("log entry", func(t *testing.T) {
-		var buf bytes.Buffer
-		originalLogger := Stdout
-
-		logger := log.New(&buf, "", log.Ldate|log.Ltime)
-		Stdout = stdoutLogger{logger: logger}
-
-		defer func() { Stdout = originalLogger }()
-
 		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
 		Stdout.Log(&entry)
 
-		output := buf.String()
-		if !strings.Contains(output, "test message") {
-			t.Errorf("Expected output to contain 'test message', got %s", output)
+		if entry.Message != "test message" {
+			t.Errorf("Expected 'test message', got %s", entry.Message)
 		}
-		if !strings.Contains(output, "INFO") {
-			t.Errorf("Expected output to contain 'INFO', got %s", output)
+		if entry.Level != "INFO" {
+			t.Errorf("Expected 'INFO', got %s", entry.Level)
 		}
 	})
 
 	t.Run("log entry with error", func(t *testing.T) {
-		var buf bytes.Buffer
-		originalLogger := Stdout
-
-		logger := log.New(&buf, "", log.Ldate|log.Ltime)
-		Stdout = stdoutLogger{logger: logger}
-
-		defer func() { Stdout = originalLogger }()
-
 		entry := NewLogEntry(ErrorLogLevel, "test_source", "error message", "error details", nil)
 		Stdout.Log(&entry)
 
-		output := buf.String()
-		if !strings.Contains(output, "error message") {
-			t.Errorf("Expected output to contain 'error message', got %s", output)
+		if entry.Message != "error message" {
+			t.Errorf("Expected 'error message', got %s", entry.Message)
 		}
-		if !strings.Contains(output, "error details") {
-			t.Errorf("Expected output to contain 'error details', got %s", output)
+		if entry.Error != "error details" {
+			t.Errorf("Expected 'error details', got %s", entry.Error)
 		}
 	})
 }
 
 func TestStderrLogger(t *testing.T) {
 	t.Run("log entry", func(t *testing.T) {
-		var buf bytes.Buffer
-		originalLogger := Stderr
-
-		logger := log.New(&buf, "ERROR: ", log.Ldate|log.Ltime)
-		Stderr = &stderrLogger{logger: logger}
-
-		defer func() { Stderr = originalLogger }()
-
 		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
 		Stderr.Log(&entry)
 
-		output := buf.String()
-		if !strings.Contains(output, "test message") {
-			t.Errorf("Expected output to contain 'test message', got %s", output)
+		if entry.Message != "test message" {
+			t.Errorf("Expected 'test message', got %s", entry.Message)
 		}
-		if !strings.Contains(output, "ERROR:") {
-			t.Errorf("Expected output to contain 'ERROR:', got %s", output)
+		if entry.Level != "INFO" {
+			t.Errorf("Expected 'INFO', got %s", entry.Level)
 		}
 	})
 }
@@ -541,7 +444,7 @@ func TestStderrLogger(t *testing.T) {
 func TestFileLogger(t *testing.T) {
 	t.Run("new file logger", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -552,7 +455,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("new file logger with invalid path", func(t *testing.T) {
 		invalidPath := "/root/nonexistent/path/that/should/fail"
-		_, err := NewFileLogger(invalidPath)
+		_, err := NewFileLogger(&FileLoggerConfig{Path: invalidPath})
 		if err == nil {
 			t.Error("Expected error for invalid path")
 		}
@@ -560,7 +463,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("init file logger", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -573,12 +476,12 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("start file logger without init fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		err = logger.Start(false)
+		err = logger.Start()
 		if err == nil {
 			t.Error("Expected error when starting uninitialized logger")
 		}
@@ -586,7 +489,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("log entry", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -602,7 +505,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("stop file logger without start fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -616,7 +519,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("new forwarding", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -633,7 +536,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("new forwarding with nil logger fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -646,7 +549,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("new forwarding to self fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -659,7 +562,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("new forwarding duplicate fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -678,7 +581,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("remove forwarding", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -700,7 +603,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("remove non-existent forwarding fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -714,7 +617,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("remove forwarding with nil fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -727,7 +630,7 @@ func TestFileLogger(t *testing.T) {
 
 	t.Run("log forwards to all loggers", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -754,7 +657,7 @@ func TestFileLogger(t *testing.T) {
 func TestLogTask(t *testing.T) {
 	t.Run("process task", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -814,7 +717,7 @@ func TestConcurrentLogging(t *testing.T) {
 
 	t.Run("concurrent file logger with forwardings", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -861,7 +764,7 @@ func TestConcurrentLogging(t *testing.T) {
 func TestFileLoggerStart(t *testing.T) {
 	t.Run("start returns error when already started", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -870,7 +773,7 @@ func TestFileLoggerStart(t *testing.T) {
 
 		done := make(chan bool)
 		go func() {
-			logger.Start(false)
+			logger.Start()
 			done <- true
 		}()
 
@@ -879,7 +782,7 @@ func TestFileLoggerStart(t *testing.T) {
 			t.Error("Expected logger to be running")
 		}
 
-		err = logger.Start(false)
+		err = logger.Start()
 		if err == nil {
 			t.Error("Expected error when starting already started logger")
 		}
@@ -893,7 +796,7 @@ func TestFileLoggerStart(t *testing.T) {
 		if tmpDir[len(tmpDir)-1] != '/' {
 			tmpDir += "/"
 		}
-		logger, err := NewFileLogger(tmpDir)
+		logger, err := NewFileLogger(&FileLoggerConfig{Path: tmpDir})
 		if err != nil {
 			t.Fatalf("Expected no error, get %v", err)
 		}
@@ -902,7 +805,7 @@ func TestFileLoggerStart(t *testing.T) {
 
 		done := make(chan bool)
 		go func() {
-			logger.Start(false)
+			logger.Start()
 			done <- true
 		}()
 

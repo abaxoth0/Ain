@@ -23,6 +23,21 @@ func TestNewDisruptor(t *testing.T) {
 			t.Error("Disruptor should not be closed initially")
 		}
 	})
+
+}
+func TestNewDisruptorWithSize(t *testing.T) {
+	t.Run("below min size", func(t *testing.T) {
+		if _, err := NewDisruptorWithSize[int](100); err == nil {
+			t.Error("Disruptor created with invalid size: 100")
+		}
+		if _, err := NewDisruptorWithSize[int](-20); err == nil {
+			t.Error("Disruptor created with invalid size: -20")
+		}
+		size := (1 << 6) + 1
+		if _, err := NewDisruptorWithSize[int](size); err == nil {
+			t.Errorf("Disruptor created with size being not a power of 2: %d", size)
+		}
+	})
 }
 
 func TestDisruptorPublish(t *testing.T) {
@@ -70,16 +85,16 @@ func TestDisruptorPublish(t *testing.T) {
 		d := NewDisruptor[int]()
 
 		// Don't start a consumer - just fill the buffer
-		// Fill buffer to capacity (BufferSize-1 entries: 0 to BufferSize-2)
-		for i := range BufferSize - 1 {
+		// Fill buffer to capacity (DefaultBufferSize-1 entries: 0 to DefaultBufferSize-2)
+		for i := range DefaultBufferSize - 1 {
 			success := d.Publish(i)
 			if !success {
 				t.Errorf("Publish %d should succeed (writer: %d, reader: %d)", i, d.writer.Value.Load(), d.reader.Value.Load())
 			}
 		}
 
-		// This should fail due to buffer overflow (trying to publish BufferSize entries)
-		success := d.Publish(BufferSize - 1)
+		// This should fail due to buffer overflow (trying to publish DefaultBufferSize entries)
+		success := d.Publish(DefaultBufferSize - 1)
 		if success {
 			t.Error("Publish should fail due to buffer overflow")
 		}
@@ -376,17 +391,17 @@ func TestDisruptorConcurrency(t *testing.T) {
 
 func TestDisruptorBufferSize(t *testing.T) {
 	t.Run("buffer size is power of two", func(t *testing.T) {
-		// This test ensures our buffer size is actually a power of 2
-		if BufferSize&(BufferSize-1) != 0 {
-			t.Errorf("BufferSize %d is not a power of 2", BufferSize)
+		// This test ensures our default buffer size is actually a power of 2
+		if DefaultBufferSize&(DefaultBufferSize-1) != 0 {
+			t.Errorf("DefaultBufferSize %d is not a power of 2", DefaultBufferSize)
 		}
 	})
 
 	t.Run("buffer index mask", func(t *testing.T) {
 		// Test that the mask works correctly for wrapping
-		for i := range BufferSize * 2 {
-			expected := i & (BufferSize - 1)
-			actual := i & BufferIndexMask
+		for i := range DefaultBufferSize * 2 {
+			expected := i & (DefaultBufferSize - 1)
+			actual := i & (DefaultBufferSize - 1)
 			if actual != expected {
 				t.Errorf("For index %d: expected %d, got %d", i, expected, actual)
 			}

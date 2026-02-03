@@ -7,8 +7,10 @@ import (
 )
 
 const (
-	BufferSize      = 1 << 16 // Must be a power of 2 for correct indexing
-	BufferIndexMask = BufferSize - 1
+	// DefaultBufferSize is the default buffer size (64K entries)
+	DefaultBufferSize = 1 << 16
+	// MinBufferSize is the minimum buffer size (64 entries)
+	MinBufferSize = 1 << 6
 )
 
 var yieldWaiter = yieldSeqWait{}
@@ -39,27 +41,46 @@ func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 
 // Implements LMAX Disruptor
 type Disruptor[T any] struct {
-	buffer [BufferSize]T
-	writer sequence // write position (starts at -1)
-	reader sequence // read position (starts at -1)
-	waiter seqWaiter
-	closed atomic.Bool
-	done   chan struct{}
+	buffer     []T
+	bufferSize int
+	bufferMask int64
+	writer     sequence // write position (starts at -1)
+	reader     sequence // read position (starts at -1)
+	waiter     seqWaiter
+	closed     atomic.Bool
+	done       chan struct{}
 }
 
+// NewDisruptor creates a new Disruptor with default buffer size (64K)
 func NewDisruptor[T any]() *Disruptor[T] {
-	// If is not power of two
-	if BufferSize&(BufferSize-1) != 0 {
-		panic(fmt.Sprintf("invalid disruptor buffer size - %d: it must be a power of two", BufferSize))
+	dis, err := NewDisruptorWithSize[T](DefaultBufferSize)
+	if err != nil {
+		panic(err)
+	}
+	return dis
+}
+
+// NewDisruptorWithSize creates a new Disruptor with specified buffer size.
+// Buffer size must be a power of 2 and at least MinBufferSize.
+func NewDisruptorWithSize[T any](size int) (*Disruptor[T], error) {
+	// Validate size
+	if size < MinBufferSize {
+		return nil, fmt.Errorf("Disruptor buffer size %d is too small (minimum: %d)", size, MinBufferSize)
+	}
+	if size&(size-1) != 0 {
+		return nil, fmt.Errorf("Disruptor buffer size %d must be a power of two", size)
 	}
 
 	d := &Disruptor[T]{
-		done:   make(chan struct{}),
-		waiter: yieldWaiter,
+		buffer:     make([]T, size),
+		bufferSize: size,
+		bufferMask: int64(size - 1),
+		done:       make(chan struct{}),
+		waiter:     yieldWaiter,
 	}
 	d.writer.Value.Store(-1)
 	d.reader.Value.Store(-1)
-	return d
+	return d, nil
 }
 
 // Closes Disruptor, after that it can't be started again.
@@ -95,6 +116,7 @@ func (d *Disruptor[T]) IsEmpty() bool {
 */
 
 // Returns false if buffer is overflowed or if Disruptor is closed
+//
 //go:norace
 func (d *Disruptor[T]) Publish(entry T) bool {
 	for {
@@ -109,7 +131,7 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 			// Check if buffer is full
 			// NOTE: For buffer sizes ≤ 8, use (nextWriter - reader) > (BufferSize - 1) condition
 			// to avoid off-by-one overwrites. For larger buffers (≥1024) keep current condition
-			if nextWriter-reader >= BufferSize {
+			if nextWriter-reader >= int64(d.bufferSize) {
 				return false
 			}
 
@@ -119,7 +141,7 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 			if d.writer.Value.CompareAndSwap(writer, nextWriter) {
 				// The CAS provides a memory barrier (release semantics) ensuring buffer write
 				// is visible to consumers before they see the updated writer cursor
-				d.buffer[nextWriter&BufferIndexMask] = entry
+				d.buffer[nextWriter&d.bufferMask] = entry
 				return true
 			}
 			// CAS failed - another publisher claimed this slot, retry
@@ -150,7 +172,7 @@ func (d *Disruptor[T]) Consume(handler func(T)) error {
 		}
 
 		for i := claimed; i <= writer; i++ {
-			entry := d.buffer[i&BufferIndexMask]
+			entry := d.buffer[i&d.bufferMask]
 			handler(entry)
 			d.reader.Value.Store(i)
 		}

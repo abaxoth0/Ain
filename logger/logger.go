@@ -2,11 +2,7 @@ package logger
 
 import (
 	"os"
-	"sync/atomic"
 )
-
-var Debug atomic.Bool
-var Trace atomic.Bool
 
 type Logger interface {
 	Log(entry *LogEntry)
@@ -40,13 +36,18 @@ type ForwardingLogger interface {
 	RemoveForwarding(logger Logger) error
 }
 
-// Returns false if log must not be processed
-func preprocess(entry *LogEntry, forwadings []Logger) bool {
-	if entry.rawLevel == DebugLogLevel && !Debug.Load() {
+// Returns false if log must not be processed.
+// Will use DefaultConfig if config is nil.
+func preprocess(entry *LogEntry, forwadings []Logger, config *LoggerConfig) bool {
+	if config == nil {
+		config = DefaultConfig
+	}
+
+	if entry.rawLevel == DebugLogLevel && !config.Debug {
 		return false
 	}
 
-	if entry.rawLevel == TraceLogLevel && !Trace.Load() {
+	if entry.rawLevel == TraceLogLevel && !config.Trace {
 		return false
 	}
 
@@ -73,7 +74,9 @@ func handleCritical(entry *LogEntry) {
 
 var (
 	Default = func() *FileLogger {
-		logger, err := NewFileLogger("/var/log/vega/")
+		logger, err := NewFileLogger(&FileLoggerConfig{
+			Path: "/tmp/ain-logs",
+		})
 		if err != nil {
 			fileLog.Fatal("Failed to initialize default logger", err.Error(), nil)
 		}

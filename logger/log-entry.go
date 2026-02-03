@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"strings"
 	"time"
 
 	"github.com/abaxoth0/Ain/structs"
@@ -68,43 +67,42 @@ type LogEntry struct {
 	Meta      structs.Meta `json:"meta,omitempty"`
 }
 
-var (
-	appName     string = "undefined"
-	appInstance string = "undefined"
-)
-
-func SetApplicationName(name string) {
-	name = strings.Trim(name, " \r\n")
-	if name == "" {
-		return
-	}
-	appName = name
+type LoggerConfig struct {
+	Debug           bool
+	Trace           bool
+	ApplicationName string
+	AppInstance     string
 }
 
-func GetApplicationName() string {
-	return appName
-}
-
-func SetApplicationInstance(instance string) {
-	instance = strings.Trim(instance, " \r\n")
-	if instance == "" {
-		return
-	}
-	appInstance = instance
-}
-
-func GetApplicationInstance() string {
-	return appInstance
+var DefaultConfig = &LoggerConfig{
+	ApplicationName: "undefined",
+	AppInstance:     "undefined",
 }
 
 // Creates a new log entry. Timestamp is time.Now().
 // If level is not error, fatal or panic, then Error will be empty, even if err specified.
 func NewLogEntry(level logLevel, src string, msg string, err string, meta structs.Meta) LogEntry {
+	return NewLogEntryWithConfig(level, src, msg, err, meta, DefaultConfig)
+}
+
+// Will use DefaultConfig if config is nil
+func NewLogEntryWithConfig(
+	level logLevel,
+	src string,
+	msg string,
+	err string,
+	meta structs.Meta,
+	config *LoggerConfig,
+) LogEntry {
+	if config == nil {
+		config = DefaultConfig
+	}
+
 	e := LogEntry{
 		rawLevel:  level,
 		Timestamp: time.Now(),
-		Service:   appName,
-		Instance:  appInstance,
+		Service:   config.ApplicationName,
+		Instance:  config.AppInstance,
 		Level:     level.String(),
 		Source:    src,
 		Message:   msg,
