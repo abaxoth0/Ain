@@ -3,6 +3,11 @@ package errs
 import "net/http"
 
 var (
+	NoValue      = NewValidationError("no value")
+	InvalidValue = NewValidationError("invalid value")
+)
+
+var (
 	StatusContinue                      = NewStatusError("Continue processing", http.StatusContinue)
 	StatusSwitchingProtocols            = NewStatusError("Switching protocols", http.StatusSwitchingProtocols)
 	StatusProcessing                    = NewStatusError("Processing", http.StatusProcessing)
