@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/abaxoth0/Ain/structs"
 )
 
 type mockLogger struct {
@@ -31,12 +33,6 @@ func (m *mockLogger) getEntries() []*LogEntry {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]*LogEntry{}, m.entries...)
-}
-
-func (m *mockLogger) clear() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.entries = nil
 }
 
 func TestLogLevelString(t *testing.T) {
@@ -165,7 +161,7 @@ func TestNewLogEntry(t *testing.T) {
 	})
 
 	t.Run("log entry with meta", func(t *testing.T) {
-		meta := map[string]interface{}{"key": "value"}
+		meta := structs.Meta{"key": "value"}
 		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", meta)
 
 		if entry.Meta["key"] != "value" {
@@ -174,28 +170,28 @@ func TestNewLogEntry(t *testing.T) {
 	})
 }
 
-func TestServiceName(t *testing.T) {
-	t.Run("set and get service name", func(t *testing.T) {
+func TestApplicationName(t *testing.T) {
+	t.Run("set and get application name", func(t *testing.T) {
 		original := GetApplicationName()
 		defer SetApplicationName(original)
 
-		SetApplicationName("test-service")
-		if GetApplicationName() != "test-service" {
-			t.Errorf("Expected 'test-service', got %s", GetApplicationName())
+		SetApplicationName("test-app")
+		if GetApplicationName() != "test-app" {
+			t.Errorf("Expected 'test-app', got %s", GetApplicationName())
 		}
 	})
 
-	t.Run("trim whitespace from service name", func(t *testing.T) {
+	t.Run("trim whitespace from application name", func(t *testing.T) {
 		original := GetApplicationName()
 		defer SetApplicationName(original)
 
-		SetApplicationName("  test-service  ")
-		if GetApplicationName() != "test-service" {
-			t.Errorf("Expected 'test-service', got %s", GetApplicationName())
+		SetApplicationName("  test-app  ")
+		if GetApplicationName() != "test-app" {
+			t.Errorf("Expected 'test-app', got %s", GetApplicationName())
 		}
 	})
 
-	t.Run("empty service name is ignored", func(t *testing.T) {
+	t.Run("empty application name is ignored", func(t *testing.T) {
 		original := GetApplicationName()
 		SetApplicationName("")
 		if GetApplicationName() != original {
@@ -203,7 +199,7 @@ func TestServiceName(t *testing.T) {
 		}
 	})
 
-	t.Run("whitespace only service name is ignored", func(t *testing.T) {
+	t.Run("whitespace only application name is ignored", func(t *testing.T) {
 		original := GetApplicationName()
 		SetApplicationName("   \r\n")
 		if GetApplicationName() != original {
@@ -212,8 +208,8 @@ func TestServiceName(t *testing.T) {
 	})
 }
 
-func TestServiceInstance(t *testing.T) {
-	t.Run("set and get service instance", func(t *testing.T) {
+func TestApplicationInstance(t *testing.T) {
+	t.Run("set and get application instance", func(t *testing.T) {
 		original := GetApplicationInstance()
 		defer SetApplicationInstance(original)
 
@@ -223,7 +219,7 @@ func TestServiceInstance(t *testing.T) {
 		}
 	})
 
-	t.Run("trim whitespace from service instance", func(t *testing.T) {
+	t.Run("trim whitespace from application instance", func(t *testing.T) {
 		original := GetApplicationInstance()
 		defer SetApplicationInstance(original)
 
@@ -233,70 +229,11 @@ func TestServiceInstance(t *testing.T) {
 		}
 	})
 
-	t.Run("empty service instance is ignored", func(t *testing.T) {
+	t.Run("empty application instance is ignored", func(t *testing.T) {
 		original := GetApplicationInstance()
 		SetApplicationInstance("")
 		if GetApplicationInstance() != original {
 			t.Errorf("Service instance should not change with empty input")
-		}
-	})
-}
-
-func TestStringSuffix(t *testing.T) {
-	t.Run("nil meta returns empty string", func(t *testing.T) {
-		suffix := stringSuffix(nil)
-		if suffix != "" {
-			t.Errorf("Expected empty string, got %s", suffix)
-		}
-	})
-
-	t.Run("empty meta returns empty string", func(t *testing.T) {
-		meta := map[string]interface{}{}
-		suffix := stringSuffix(meta)
-		if suffix != "" {
-			t.Errorf("Expected empty string, got %s", suffix)
-		}
-	})
-
-	t.Run("meta with no known properties returns empty string", func(t *testing.T) {
-		meta := map[string]interface{}{"unknown": "value"}
-		suffix := stringSuffix(meta)
-		if suffix != "" {
-			t.Errorf("Expected empty string, got %s", suffix)
-		}
-	})
-
-	t.Run("meta with addr property", func(t *testing.T) {
-		meta := map[string]interface{}{"addr": "192.168.1.1"}
-		suffix := stringSuffix(meta)
-		if !strings.Contains(suffix, "192.168.1.1") {
-			t.Errorf("Expected suffix to contain '192.168.1.1', got %s", suffix)
-		}
-	})
-
-	t.Run("meta with multiple known properties", func(t *testing.T) {
-		meta := map[string]interface{}{
-			"addr":   "192.168.1.1",
-			"method": "GET",
-			"path":   "/api/test",
-		}
-		suffix := stringSuffix(meta)
-		if !strings.Contains(suffix, "192.168.1.1") {
-			t.Errorf("Expected suffix to contain '192.168.1.1', got %s", suffix)
-		}
-		if !strings.Contains(suffix, "GET") {
-			t.Errorf("Expected suffix to contain 'GET', got %s", suffix)
-		}
-		if !strings.Contains(suffix, "/api/test") {
-			t.Errorf("Expected suffix to contain '/api/test', got %s", suffix)
-		}
-	})
-
-	t.Run("meta with non-string values returns empty string", func(t *testing.T) {
-		meta := map[string]interface{}{"addr": 12345}
-		suffix := stringSuffix(meta)
-		if suffix != "" {
-			t.Errorf("Expected empty string for non-string value, got %s", suffix)
 		}
 	})
 }
@@ -521,7 +458,7 @@ func TestNewSource(t *testing.T) {
 		mock := &mockLogger{}
 		source := NewSource("test_source", mock)
 
-		meta := map[string]interface{}{"key": "value"}
+		meta := structs.Meta{"key": "value"}
 		source.Info("message", meta)
 
 		entries := mock.getEntries()
@@ -574,25 +511,6 @@ func TestStdoutLogger(t *testing.T) {
 		}
 		if !strings.Contains(output, "error details") {
 			t.Errorf("Expected output to contain 'error details', got %s", output)
-		}
-	})
-
-	t.Run("log entry with meta", func(t *testing.T) {
-		var buf bytes.Buffer
-		originalLogger := Stdout
-
-		logger := log.New(&buf, "", log.Ldate|log.Ltime)
-		Stdout = stdoutLogger{logger: logger}
-
-		defer func() { Stdout = originalLogger }()
-
-		meta := map[string]interface{}{"addr": "192.168.1.1"}
-		entry := NewLogEntry(InfoLogLevel, "test_source", "message", "", meta)
-		Stdout.Log(&entry)
-
-		output := buf.String()
-		if !strings.Contains(output, "192.168.1.1") {
-			t.Errorf("Expected output to contain '192.168.1.1', got %s", output)
 		}
 	})
 }

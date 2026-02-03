@@ -3,41 +3,10 @@ package logger
 import (
 	"os"
 	"sync/atomic"
-
-	"github.com/abaxoth0/Ain/structs"
 )
 
 var Debug atomic.Bool
 var Trace atomic.Bool
-
-func stringSuffix(m structs.Meta) string {
-	if m == nil {
-		return ""
-	}
-
-	return createSuffixFromWellKnownMeta(m)
-}
-
-var wellKnownMetaProperties = []string{
-	"addr",
-	"method",
-	"path",
-	"user_agent",
-	"request_id",
-}
-
-func createSuffixFromWellKnownMeta(m structs.Meta) string {
-	s := ""
-	for _, prop := range wellKnownMetaProperties {
-		if v, ok := m[prop].(string); ok {
-			s += v + " "
-		}
-	}
-	if s == "" {
-		return ""
-	}
-	return " (" + s + ")"
-}
 
 type Logger interface {
 	Log(entry *LogEntry)

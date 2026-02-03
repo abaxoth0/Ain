@@ -23,7 +23,7 @@ func (l *stderrLogger) log(entry *LogEntry) {
 	if entry.rawLevel >= ErrorLogLevel {
 		msg += ": " + entry.Error
 	}
-	l.logger.Println(msg + stringSuffix(entry.Meta))
+	l.logger.Println(msg + " " + entry.Meta.String())
 }
 
 func (l *stderrLogger) Log(entry *LogEntry) {
