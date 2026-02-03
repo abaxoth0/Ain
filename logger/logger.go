@@ -25,10 +25,10 @@ type ForwardingLogger interface {
 	Logger
 
 	// Binds another logger to this logger.
-	// On calling Log() it also will be called on all binded loggers
+	// On calling Log() it also will be called on all bound loggers
 	// (entry will be the same for all loggers)
 	//
-	// Can't bind to self. Can't bind to one logger more then once.
+	// Can't bind to self. Can't bind to one logger more than once.
 	NewForwarding(logger Logger) error
 
 	// Removes existing forwarding.
@@ -38,7 +38,7 @@ type ForwardingLogger interface {
 
 // Returns false if log must not be processed.
 // Will use DefaultConfig if config is nil.
-func preprocess(entry *LogEntry, forwadings []Logger, config *LoggerConfig) bool {
+func preprocess(entry *LogEntry, forwardings []Logger, config *LoggerConfig) bool {
 	if config == nil {
 		config = DefaultConfig
 	}
@@ -51,8 +51,8 @@ func preprocess(entry *LogEntry, forwadings []Logger, config *LoggerConfig) bool
 		return false
 	}
 
-	if forwadings != nil && len(forwadings) != 0 {
-		for _, forwarding := range forwadings {
+	if forwardings != nil && len(forwardings) != 0 {
+		for _, forwarding := range forwardings {
 			// Must call log() not Log(), since log() just does logging
 			// without any additional side effects.
 			forwarding.log(entry)
