@@ -1,0 +1,601 @@
+struct,type,cores,iterations,ns/op,MB/s,op/s,B/op,allocs/op
+Disruptor,Single Operation,6,1000000000,0.01476,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01384,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01386,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01382,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01367,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01477,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01368,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01423,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01382,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01371,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0142,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01365,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0146,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01486,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01384,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01487,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01388,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0151,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01425,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01363,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01387,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01456,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01371,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01369,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01874,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01415,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01369,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01402,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01378,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01376,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01417,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01383,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01354,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01416,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01383,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01379,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01411,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01449,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01386,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01406,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01444,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01395,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01463,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01395,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01429,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01387,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01545,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01495,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01407,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01493,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01409,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01376,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01424,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01363,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01459,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01487,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01407,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01417,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01373,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0149,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01631,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0153,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01731,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01404,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01444,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01398,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01446,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01385,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01385,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01403,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01471,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01467,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01537,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0141,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0137,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01403,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.0159,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01419,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01436,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01408,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01421,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01403,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01452,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01376,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01569,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01414,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01467,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01377,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01399,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01906,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01446,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01488,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01394,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01443,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01354,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01454,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01398,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.02003,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01465,N\A,N\A,0,0
+Disruptor,Single Operation,6,1000000000,0.01427,N\A,N\A,0,0
+SyncQueue,Single Operation,6,15269377,69.29,N\A,N\A,206,0
+SyncQueue,Single Operation,6,16533589,142.5,N\A,N\A,238,0
+SyncQueue,Single Operation,6,16630930,64.78,N\A,N\A,237,0
+SyncQueue,Single Operation,6,20772268,110.1,N\A,N\A,237,0
+SyncQueue,Single Operation,6,24035644,68.81,N\A,N\A,205,0
+SyncQueue,Single Operation,6,24272451,67.98,N\A,N\A,203,0
+SyncQueue,Single Operation,6,20386773,64.72,N\A,N\A,241,0
+SyncQueue,Single Operation,6,21267140,64.39,N\A,N\A,231,0
+SyncQueue,Single Operation,6,18031728,64.94,N\A,N\A,218,0
+SyncQueue,Single Operation,6,19458000,57.37,N\A,N\A,202,0
+SyncQueue,Single Operation,6,19908308,79.57,N\A,N\A,247,0
+SyncQueue,Single Operation,6,20661128,73.58,N\A,N\A,238,0
+SyncQueue,Single Operation,6,20955856,61.38,N\A,N\A,235,0
+SyncQueue,Single Operation,6,24273680,70.12,N\A,N\A,203,0
+SyncQueue,Single Operation,6,20800140,66.69,N\A,N\A,237,0
+SyncQueue,Single Operation,6,20408125,82.53,N\A,N\A,241,0
+SyncQueue,Single Operation,6,22051208,76.14,N\A,N\A,223,0
+SyncQueue,Single Operation,6,20397762,66.04,N\A,N\A,241,0
+SyncQueue,Single Operation,6,23901361,69.65,N\A,N\A,206,0
+SyncQueue,Single Operation,6,24432956,58.39,N\A,N\A,201,0
+SyncQueue,Single Operation,6,20657612,83.67,N\A,N\A,238,0
+SyncQueue,Single Operation,6,18425456,54.38,N\A,N\A,214,0
+SyncQueue,Single Operation,6,21181874,78.28,N\A,N\A,232,0
+SyncQueue,Single Operation,6,20205686,66.78,N\A,N\A,244,0
+SyncQueue,Single Operation,6,19143058,63.62,N\A,N\A,206,0
+SyncQueue,Single Operation,6,21461257,74.63,N\A,N\A,229,0
+SyncQueue,Single Operation,6,20334393,70.87,N\A,N\A,242,0
+SyncQueue,Single Operation,6,24512133,68.76,N\A,N\A,201,0
+SyncQueue,Single Operation,6,24483385,70.0,N\A,N\A,201,0
+SyncQueue,Single Operation,6,22125124,77.28,N\A,N\A,222,0
+SyncQueue,Single Operation,6,21067168,77.94,N\A,N\A,234,0
+SyncQueue,Single Operation,6,21007618,62.21,N\A,N\A,234,0
+SyncQueue,Single Operation,6,23998495,73.82,N\A,N\A,205,0
+SyncQueue,Single Operation,6,22630790,73.22,N\A,N\A,217,0
+SyncQueue,Single Operation,6,20691885,59.04,N\A,N\A,238,0
+SyncQueue,Single Operation,6,20674695,68.0,N\A,N\A,238,0
+SyncQueue,Single Operation,6,17089390,66.24,N\A,N\A,230,0
+SyncQueue,Single Operation,6,19527714,63.86,N\A,N\A,202,0
+SyncQueue,Single Operation,6,20023984,78.76,N\A,N\A,246,0
+SyncQueue,Single Operation,6,21624200,73.65,N\A,N\A,228,0
+SyncQueue,Single Operation,6,24691081,74.66,N\A,N\A,249,0
+SyncQueue,Single Operation,6,22822711,73.47,N\A,N\A,216,0
+SyncQueue,Single Operation,6,24190203,69.48,N\A,N\A,203,0
+SyncQueue,Single Operation,6,21598845,77.17,N\A,N\A,228,0
+SyncQueue,Single Operation,6,21904255,74.33,N\A,N\A,225,0
+SyncQueue,Single Operation,6,22878597,75.04,N\A,N\A,215,0
+SyncQueue,Single Operation,6,22877530,75.09,N\A,N\A,215,0
+SyncQueue,Single Operation,6,19950602,70.3,N\A,N\A,247,0
+SyncQueue,Single Operation,6,19657687,53.24,N\A,N\A,200,0
+SyncQueue,Single Operation,6,18525334,77.85,N\A,N\A,213,0
+SyncQueue,Single Operation,6,19753776,77.4,N\A,N\A,249,0
+SyncQueue,Single Operation,6,21617337,76.53,N\A,N\A,228,0
+SyncQueue,Single Operation,6,22865635,73.72,N\A,N\A,215,0
+SyncQueue,Single Operation,6,19444756,51.46,N\A,N\A,202,0
+SyncQueue,Single Operation,6,18396241,62.28,N\A,N\A,214,0
+SyncQueue,Single Operation,6,20656838,78.18,N\A,N\A,238,0
+SyncQueue,Single Operation,6,22831963,72.1,N\A,N\A,216,0
+SyncQueue,Single Operation,6,20676242,67.31,N\A,N\A,238,0
+SyncQueue,Single Operation,6,21286771,78.98,N\A,N\A,231,0
+SyncQueue,Single Operation,6,22329945,76.4,N\A,N\A,220,0
+SyncQueue,Single Operation,6,22307353,77.82,N\A,N\A,221,0
+SyncQueue,Single Operation,6,20199038,70.79,N\A,N\A,244,0
+SyncQueue,Single Operation,6,20597990,66.98,N\A,N\A,239,0
+SyncQueue,Single Operation,6,21095336,77.85,N\A,N\A,233,0
+SyncQueue,Single Operation,6,22861482,68.1,N\A,N\A,215,0
+SyncQueue,Single Operation,6,18228756,66.35,N\A,N\A,216,0
+SyncQueue,Single Operation,6,18630643,63.32,N\A,N\A,211,0
+SyncQueue,Single Operation,6,17332903,64.3,N\A,N\A,227,0
+SyncQueue,Single Operation,6,18256198,75.45,N\A,N\A,216,0
+SyncQueue,Single Operation,6,18668277,65.43,N\A,N\A,211,0
+SyncQueue,Single Operation,6,16919876,70.19,N\A,N\A,233,0
+SyncQueue,Single Operation,6,22408516,76.41,N\A,N\A,220,0
+SyncQueue,Single Operation,6,19539812,55.76,N\A,N\A,201,0
+SyncQueue,Single Operation,6,20057424,80.36,N\A,N\A,245,0
+SyncQueue,Single Operation,6,19487348,51.97,N\A,N\A,202,0
+SyncQueue,Single Operation,6,16987610,69.27,N\A,N\A,232,0
+SyncQueue,Single Operation,6,16375786,69.21,N\A,N\A,240,0
+SyncQueue,Single Operation,6,16624729,73.97,N\A,N\A,237,0
+SyncQueue,Single Operation,6,17037964,66.98,N\A,N\A,231,0
+SyncQueue,Single Operation,6,17107669,68.1,N\A,N\A,230,0
+SyncQueue,Single Operation,6,19973941,71.63,N\A,N\A,246,0
+SyncQueue,Single Operation,6,18106045,67.12,N\A,N\A,217,0
+SyncQueue,Single Operation,6,18676003,62.89,N\A,N\A,211,0
+SyncQueue,Single Operation,6,15519288,65.89,N\A,N\A,203,0
+SyncQueue,Single Operation,6,18288745,72.24,N\A,N\A,215,0
+SyncQueue,Single Operation,6,24160255,76.25,N\A,N\A,204,0
+SyncQueue,Single Operation,6,20953842,65.83,N\A,N\A,235,0
+SyncQueue,Single Operation,6,17728648,58.31,N\A,N\A,222,0
+SyncQueue,Single Operation,6,22505415,79.41,N\A,N\A,219,0
+SyncQueue,Single Operation,6,19452769,53.29,N\A,N\A,202,0
+SyncQueue,Single Operation,6,21714704,69.55,N\A,N\A,227,0
+SyncQueue,Single Operation,6,18951001,59.8,N\A,N\A,208,0
+SyncQueue,Single Operation,6,19694961,58.36,N\A,N\A,200,0
+SyncQueue,Single Operation,6,20226956,81.4,N\A,N\A,243,0
+SyncQueue,Single Operation,6,20090204,76.09,N\A,N\A,245,0
+SyncQueue,Single Operation,6,17697132,60.85,N\A,N\A,222,0
+SyncQueue,Single Operation,6,17350339,66.09,N\A,N\A,227,0
+SyncQueue,Single Operation,6,17339301,63.56,N\A,N\A,227,0
+SyncQueue,Single Operation,6,18379408,69.18,N\A,N\A,214,0
+SyncQueue,Single Operation,6,21489469,67.26,N\A,N\A,229,0
+Channel,Single Operation,6,51028076,23.37,N\A,N\A,0,0
+Channel,Single Operation,6,51301365,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,50614815,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,49032697,23.37,N\A,N\A,0,0
+Channel,Single Operation,6,50079640,23.57,N\A,N\A,0,0
+Channel,Single Operation,6,50592919,23.65,N\A,N\A,0,0
+Channel,Single Operation,6,50992378,23.57,N\A,N\A,0,0
+Channel,Single Operation,6,50404381,23.56,N\A,N\A,0,0
+Channel,Single Operation,6,50711768,23.92,N\A,N\A,0,0
+Channel,Single Operation,6,48799249,23.46,N\A,N\A,0,0
+Channel,Single Operation,6,50252228,23.88,N\A,N\A,0,0
+Channel,Single Operation,6,50164080,23.35,N\A,N\A,0,0
+Channel,Single Operation,6,50157273,23.37,N\A,N\A,0,0
+Channel,Single Operation,6,49718238,23.39,N\A,N\A,0,0
+Channel,Single Operation,6,50223512,23.39,N\A,N\A,0,0
+Channel,Single Operation,6,49793625,23.46,N\A,N\A,0,0
+Channel,Single Operation,6,50903155,23.69,N\A,N\A,0,0
+Channel,Single Operation,6,46992508,23.69,N\A,N\A,0,0
+Channel,Single Operation,6,51172663,23.28,N\A,N\A,0,0
+Channel,Single Operation,6,50917693,23.83,N\A,N\A,0,0
+Channel,Single Operation,6,50891547,23.46,N\A,N\A,0,0
+Channel,Single Operation,6,51139731,23.84,N\A,N\A,0,0
+Channel,Single Operation,6,49104613,23.33,N\A,N\A,0,0
+Channel,Single Operation,6,47028717,23.85,N\A,N\A,0,0
+Channel,Single Operation,6,50964247,23.68,N\A,N\A,0,0
+Channel,Single Operation,6,50499423,23.86,N\A,N\A,0,0
+Channel,Single Operation,6,50297564,23.33,N\A,N\A,0,0
+Channel,Single Operation,6,51332962,23.37,N\A,N\A,0,0
+Channel,Single Operation,6,50670381,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,50166975,23.36,N\A,N\A,0,0
+Channel,Single Operation,6,50878622,23.85,N\A,N\A,0,0
+Channel,Single Operation,6,51170847,23.51,N\A,N\A,0,0
+Channel,Single Operation,6,49909179,23.3,N\A,N\A,0,0
+Channel,Single Operation,6,51421543,23.33,N\A,N\A,0,0
+Channel,Single Operation,6,50033853,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,49934436,23.41,N\A,N\A,0,0
+Channel,Single Operation,6,49914392,23.75,N\A,N\A,0,0
+Channel,Single Operation,6,51127804,23.36,N\A,N\A,0,0
+Channel,Single Operation,6,50751620,23.45,N\A,N\A,0,0
+Channel,Single Operation,6,47494738,23.56,N\A,N\A,0,0
+Channel,Single Operation,6,50069877,23.45,N\A,N\A,0,0
+Channel,Single Operation,6,49936030,23.45,N\A,N\A,0,0
+Channel,Single Operation,6,50251335,23.9,N\A,N\A,0,0
+Channel,Single Operation,6,49632336,23.42,N\A,N\A,0,0
+Channel,Single Operation,6,51217275,23.36,N\A,N\A,0,0
+Channel,Single Operation,6,51275384,23.72,N\A,N\A,0,0
+Channel,Single Operation,6,51184137,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,49042464,23.39,N\A,N\A,0,0
+Channel,Single Operation,6,49382445,23.76,N\A,N\A,0,0
+Channel,Single Operation,6,49972647,23.62,N\A,N\A,0,0
+Channel,Single Operation,6,50489212,23.43,N\A,N\A,0,0
+Channel,Single Operation,6,51224101,23.4,N\A,N\A,0,0
+Channel,Single Operation,6,51292304,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,51221180,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,51114172,23.74,N\A,N\A,0,0
+Channel,Single Operation,6,50222592,23.73,N\A,N\A,0,0
+Channel,Single Operation,6,50927359,23.35,N\A,N\A,0,0
+Channel,Single Operation,6,50993728,23.37,N\A,N\A,0,0
+Channel,Single Operation,6,49428105,23.35,N\A,N\A,0,0
+Channel,Single Operation,6,50752886,23.35,N\A,N\A,0,0
+Channel,Single Operation,6,48209262,23.97,N\A,N\A,0,0
+Channel,Single Operation,6,47570356,23.85,N\A,N\A,0,0
+Channel,Single Operation,6,47410154,23.5,N\A,N\A,0,0
+Channel,Single Operation,6,50336463,23.48,N\A,N\A,0,0
+Channel,Single Operation,6,48194901,23.37,N\A,N\A,0,0
+Channel,Single Operation,6,50498932,23.41,N\A,N\A,0,0
+Channel,Single Operation,6,50285943,23.72,N\A,N\A,0,0
+Channel,Single Operation,6,51176452,23.43,N\A,N\A,0,0
+Channel,Single Operation,6,49628997,23.94,N\A,N\A,0,0
+Channel,Single Operation,6,50863840,23.69,N\A,N\A,0,0
+Channel,Single Operation,6,50068459,23.48,N\A,N\A,0,0
+Channel,Single Operation,6,49765281,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,48771974,23.85,N\A,N\A,0,0
+Channel,Single Operation,6,50561576,23.73,N\A,N\A,0,0
+Channel,Single Operation,6,49468332,23.42,N\A,N\A,0,0
+Channel,Single Operation,6,51237502,23.39,N\A,N\A,0,0
+Channel,Single Operation,6,50235286,23.78,N\A,N\A,0,0
+Channel,Single Operation,6,49720032,23.73,N\A,N\A,0,0
+Channel,Single Operation,6,49884168,23.39,N\A,N\A,0,0
+Channel,Single Operation,6,48892578,23.41,N\A,N\A,0,0
+Channel,Single Operation,6,51107029,23.36,N\A,N\A,0,0
+Channel,Single Operation,6,51042860,23.45,N\A,N\A,0,0
+Channel,Single Operation,6,51065052,24.04,N\A,N\A,0,0
+Channel,Single Operation,6,49644700,23.91,N\A,N\A,0,0
+Channel,Single Operation,6,49326963,23.53,N\A,N\A,0,0
+Channel,Single Operation,6,51020828,23.92,N\A,N\A,0,0
+Channel,Single Operation,6,51340267,23.62,N\A,N\A,0,0
+Channel,Single Operation,6,50565349,23.92,N\A,N\A,0,0
+Channel,Single Operation,6,51365352,23.43,N\A,N\A,0,0
+Channel,Single Operation,6,51217372,23.41,N\A,N\A,0,0
+Channel,Single Operation,6,49718684,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,49421695,23.93,N\A,N\A,0,0
+Channel,Single Operation,6,50035975,23.43,N\A,N\A,0,0
+Channel,Single Operation,6,49274364,23.4,N\A,N\A,0,0
+Channel,Single Operation,6,48652282,23.38,N\A,N\A,0,0
+Channel,Single Operation,6,42892384,23.39,N\A,N\A,0,0
+Channel,Single Operation,6,51334596,23.67,N\A,N\A,0,0
+Channel,Single Operation,6,50226607,23.81,N\A,N\A,0,0
+Channel,Single Operation,6,51124278,23.62,N\A,N\A,0,0
+Channel,Single Operation,6,49895059,23.9,N\A,N\A,0,0
+Disruptor,Throughput,6,992,1295399.0,0.03,831810,0,0
+Disruptor,Throughput,6,973,1265069.0,0.03,871796,0,0
+Disruptor,Throughput,6,986,1251077.0,0.03,915664,0,0
+Disruptor,Throughput,6,942,1221219.0,0.03,868721,0,0
+Disruptor,Throughput,6,964,1189415.0,0.03,897590,0,0
+Disruptor,Throughput,6,1028,1214388.0,0.03,901773,0,0
+Disruptor,Throughput,6,991,1179091.0,0.03,877417,0,0
+Disruptor,Throughput,6,1002,1173477.0,0.03,832670,0,0
+Disruptor,Throughput,6,1011,1211963.0,0.03,948136,0,0
+Disruptor,Throughput,6,992,1297555.0,0.03,869434,0,0
+Disruptor,Throughput,6,1041,1224061.0,0.03,878948,0,0
+Disruptor,Throughput,6,1000,1216710.0,0.03,927905,0,0
+Disruptor,Throughput,6,930,1247080.0,0.03,948648,0,0
+Disruptor,Throughput,6,997,1223637.0,0.03,851544,0,0
+Disruptor,Throughput,6,964,1213731.0,0.03,937185,0,0
+Disruptor,Throughput,6,909,1364992.0,0.03,261783,0,0
+Disruptor,Throughput,6,871,1332518.0,0.03,946316,0,0
+Disruptor,Throughput,6,906,1196163.0,0.03,919681,0,0
+Disruptor,Throughput,6,922,1239680.0,0.03,833129,0,0
+Disruptor,Throughput,6,981,1351395.0,0.03,869096,0,0
+Disruptor,Throughput,6,948,1247634.0,0.03,891665,0,0
+Disruptor,Throughput,6,1021,1228258.0,0.03,873507,0,0
+Disruptor,Throughput,6,960,1195204.0,0.03,877713,0,0
+Disruptor,Throughput,6,937,1230204.0,0.03,794332,0,0
+Disruptor,Throughput,6,978,1300060.0,0.03,530687,0,0
+Disruptor,Throughput,6,861,1374878.0,0.03,923004,0,0
+Disruptor,Throughput,6,854,1206693.0,0.03,869648,0,0
+Disruptor,Throughput,6,993,1185758.0,0.03,819142,0,0
+Disruptor,Throughput,6,979,1192402.0,0.03,972872,0,0
+Disruptor,Throughput,6,975,1175311.0,0.03,898556,0,0
+Disruptor,Throughput,6,1010,1323948.0,0.03,912269,0,0
+Disruptor,Throughput,6,818,1334590.0,0.03,476168,0,0
+Disruptor,Throughput,6,963,1246082.0,0.03,861422,0,0
+Disruptor,Throughput,6,890,1324962.0,0.03,762861,0,0
+Disruptor,Throughput,6,891,1288427.0,0.03,917627,0,0
+Disruptor,Throughput,6,952,1302680.0,0.03,831285,0,0
+Disruptor,Throughput,6,890,1361588.0,0.03,866321,0,0
+Disruptor,Throughput,6,902,1220079.0,0.03,916390,0,0
+Disruptor,Throughput,6,943,1230466.0,0.03,800553,0,0
+Disruptor,Throughput,6,969,1220429.0,0.03,909097,0,0
+Disruptor,Throughput,6,979,1225193.0,0.03,473866,0,0
+Disruptor,Throughput,6,894,1236964.0,0.03,803872,0,0
+Disruptor,Throughput,6,986,1209483.0,0.03,827158,0,0
+Disruptor,Throughput,6,946,1230879.0,0.03,821684,0,0
+Disruptor,Throughput,6,966,1359221.0,0.03,748991,0,0
+Disruptor,Throughput,6,906,1236470.0,0.03,909640,0,0
+Disruptor,Throughput,6,900,1237986.0,0.03,849086,0,0
+Disruptor,Throughput,6,945,1315330.0,0.03,898440,0,0
+Disruptor,Throughput,6,1014,1177965.0,0.03,861917,0,0
+Disruptor,Throughput,6,992,1189654.0,0.03,870976,0,0
+Disruptor,Throughput,6,970,1190978.0,0.03,482443,0,0
+Disruptor,Throughput,6,1003,1194514.0,0.03,922270,0,0
+Disruptor,Throughput,6,1018,1211359.0,0.03,959053,0,0
+Disruptor,Throughput,6,1039,1205631.0,0.03,842445,0,0
+Disruptor,Throughput,6,1000,1213232.0,0.03,829284,0,0
+Disruptor,Throughput,6,1068,1254979.0,0.03,836273,0,0
+Disruptor,Throughput,6,1032,1230194.0,0.03,942242,0,0
+Disruptor,Throughput,6,1028,1219844.0,0.03,485555,0,0
+Disruptor,Throughput,6,1023,1263773.0,0.03,478141,0,0
+Disruptor,Throughput,6,958,1231176.0,0.03,774081,0,0
+Disruptor,Throughput,6,1023,1349683.0,0.03,486784,0,0
+Disruptor,Throughput,6,1020,1256385.0,0.03,461109,0,0
+Disruptor,Throughput,6,1000,1260116.0,0.03,489355,0,0
+Disruptor,Throughput,6,930,1246733.0,0.03,880912,0,0
+Disruptor,Throughput,6,1033,1222719.0,0.03,978009,0,0
+Disruptor,Throughput,6,1024,1220520.0,0.03,886138,0,0
+Disruptor,Throughput,6,1010,1225566.0,0.03,902395,0,0
+Disruptor,Throughput,6,1011,1268886.0,0.03,799527,0,0
+Disruptor,Throughput,6,988,1198850.0,0.03,886394,0,0
+Disruptor,Throughput,6,1042,1212595.0,0.03,948921,0,0
+Disruptor,Throughput,6,1041,1164991.0,0.03,933293,0,0
+Disruptor,Throughput,6,1014,1182926.0,0.03,954147,0,0
+Disruptor,Throughput,6,988,1193368.0,0.03,923066,0,0
+Disruptor,Throughput,6,1012,1187400.0,0.03,910741,0,0
+Disruptor,Throughput,6,1024,1238883.0,0.03,921333,0,0
+Disruptor,Throughput,6,952,1284108.0,0.03,968905,0,0
+Disruptor,Throughput,6,945,1295180.0,0.03,881369,0,0
+Disruptor,Throughput,6,1032,1228505.0,0.03,844788,0,0
+Disruptor,Throughput,6,1032,1177667.0,0.03,980816,0,0
+Disruptor,Throughput,6,1046,1208449.0,0.03,838474,0,0
+Disruptor,Throughput,6,1027,1215306.0,0.03,933194,0,0
+Disruptor,Throughput,6,962,1179878.0,0.03,925463,0,0
+Disruptor,Throughput,6,961,1233902.0,0.03,912261,0,0
+Disruptor,Throughput,6,1024,1218885.0,0.03,870674,0,0
+Disruptor,Throughput,6,932,1213461.0,0.03,913312,0,0
+Disruptor,Throughput,6,907,1228523.0,0.03,850617,0,0
+Disruptor,Throughput,6,994,1214762.0,0.03,918629,0,0
+Disruptor,Throughput,6,1012,1354403.0,0.03,954286,0,0
+Disruptor,Throughput,6,950,1265220.0,0.03,879225,0,0
+Disruptor,Throughput,6,925,1287783.0,0.03,434646,0,0
+Disruptor,Throughput,6,856,1368401.0,0.03,822079,0,0
+Disruptor,Throughput,6,909,1264707.0,0.03,851091,0,0
+Disruptor,Throughput,6,963,1239429.0,0.03,946942,0,0
+Disruptor,Throughput,6,882,1359612.0,0.03,814120,0,0
+Disruptor,Throughput,6,897,1358546.0,0.03,575582,0,0
+Disruptor,Throughput,6,1006,1253633.0,0.03,805689,0,0
+Disruptor,Throughput,6,969,1242247.0,0.03,969129,0,0
+Disruptor,Throughput,6,994,1210741.0,0.03,846047,0,0
+Disruptor,Throughput,6,1004,1201824.0,0.03,919669,0,0
+Disruptor,Throughput,6,1047,1216560.0,0.03,888103,0,0
+SyncQueue,Throughput,6,967,1207053.0,0.03,496374,218249,48
+SyncQueue,Throughput,6,1027,1194942.0,0.03,797543,218089,47
+SyncQueue,Throughput,6,932,1281842.0,0.03,864439,218519,49
+SyncQueue,Throughput,6,1026,1232802.0,0.03,726900,218694,48
+SyncQueue,Throughput,6,934,1267869.0,0.03,844557,218314,49
+SyncQueue,Throughput,6,1041,1193654.0,0.03,758959,217298,45
+SyncQueue,Throughput,6,986,1191410.0,0.03,853537,217463,46
+SyncQueue,Throughput,6,1021,1227181.0,0.03,827451,217133,45
+SyncQueue,Throughput,6,988,1201374.0,0.03,875721,216665,43
+SyncQueue,Throughput,6,967,1214492.0,0.03,786220,217085,45
+SyncQueue,Throughput,6,984,1291719.0,0.03,617970,218412,48
+SyncQueue,Throughput,6,915,1287767.0,0.03,881534,218951,49
+SyncQueue,Throughput,6,898,1295697.0,0.03,799774,218410,48
+SyncQueue,Throughput,6,915,1302543.0,0.03,803322,219092,50
+SyncQueue,Throughput,6,879,1297780.0,0.03,790762,219257,49
+SyncQueue,Throughput,6,927,1226253.0,0.03,840447,218023,47
+SyncQueue,Throughput,6,1008,1184145.0,0.03,596154,218324,47
+SyncQueue,Throughput,6,940,1244470.0,0.03,864363,218860,50
+SyncQueue,Throughput,6,982,1200005.0,0.03,841381,217337,45
+SyncQueue,Throughput,6,1009,1203189.0,0.03,879507,216891,42
+SyncQueue,Throughput,6,979,1196704.0,0.03,841841,217019,45
+SyncQueue,Throughput,6,957,1196241.0,0.03,841902,218006,47
+SyncQueue,Throughput,6,963,1224678.0,0.03,893196,217959,47
+SyncQueue,Throughput,6,992,1189736.0,0.03,878711,217704,46
+SyncQueue,Throughput,6,1018,1203362.0,0.03,889992,218139,47
+SyncQueue,Throughput,6,1042,1192183.0,0.03,872533,217161,45
+SyncQueue,Throughput,6,980,1190337.0,0.03,881211,217895,47
+SyncQueue,Throughput,6,873,1321188.0,0.03,782994,219064,50
+SyncQueue,Throughput,6,934,1278056.0,0.03,870044,218885,49
+SyncQueue,Throughput,6,915,1280302.0,0.03,767033,219191,50
+SyncQueue,Throughput,6,928,1267986.0,0.03,866689,218383,49
+SyncQueue,Throughput,6,987,1216540.0,0.03,877723,216390,43
+SyncQueue,Throughput,6,997,1190863.0,0.03,866756,216984,45
+SyncQueue,Throughput,6,988,1195650.0,0.03,878781,217651,47
+SyncQueue,Throughput,6,1018,1191286.0,0.03,895330,217694,46
+SyncQueue,Throughput,6,985,1198464.0,0.03,864040,217823,47
+SyncQueue,Throughput,6,999,1181993.0,0.03,885700,218100,47
+SyncQueue,Throughput,6,984,1190683.0,0.03,866417,217770,47
+SyncQueue,Throughput,6,996,1193455.0,0.03,846290,217210,46
+SyncQueue,Throughput,6,999,1210890.0,0.03,932211,217174,46
+SyncQueue,Throughput,6,1009,1180711.0,0.03,835575,218061,47
+SyncQueue,Throughput,6,987,1197977.0,0.03,911901,217277,45
+SyncQueue,Throughput,6,991,1205487.0,0.03,818470,216545,43
+SyncQueue,Throughput,6,973,1202307.0,0.03,887980,217761,46
+SyncQueue,Throughput,6,1009,1199390.0,0.03,793271,217739,46
+SyncQueue,Throughput,6,1010,1190609.0,0.03,903432,217706,46
+SyncQueue,Throughput,6,984,1196587.0,0.03,901498,217827,46
+SyncQueue,Throughput,6,986,1197740.0,0.03,875680,218178,47
+SyncQueue,Throughput,6,988,1195539.0,0.03,859072,218270,46
+SyncQueue,Throughput,6,993,1196491.0,0.03,885546,218077,47
+SyncQueue,Throughput,6,986,1187299.0,0.03,906011,218000,47
+SyncQueue,Throughput,6,1004,1188634.0,0.03,876432,218476,47
+SyncQueue,Throughput,6,992,1197245.0,0.03,859688,218104,46
+SyncQueue,Throughput,6,1006,1204582.0,0.03,886615,216709,43
+SyncQueue,Throughput,6,996,1204712.0,0.03,733361,217284,45
+SyncQueue,Throughput,6,823,1351623.0,0.03,378664,219411,50
+SyncQueue,Throughput,6,872,1333954.0,0.03,780558,219640,51
+SyncQueue,Throughput,6,901,1293773.0,0.03,665936,218868,49
+SyncQueue,Throughput,6,915,1271172.0,0.03,802963,219635,49
+SyncQueue,Throughput,6,939,1320072.0,0.03,835885,219336,49
+SyncQueue,Throughput,6,903,1287237.0,0.03,826679,218991,49
+SyncQueue,Throughput,6,942,1282635.0,0.03,826536,219378,50
+SyncQueue,Throughput,6,914,1296681.0,0.03,817993,219232,50
+SyncQueue,Throughput,6,984,1204910.0,0.03,663967,216750,43
+SyncQueue,Throughput,6,1020,1223795.0,0.03,819320,216349,43
+SyncQueue,Throughput,6,1009,1195399.0,0.03,865026,217352,46
+SyncQueue,Throughput,6,1030,1216682.0,0.03,817732,217914,48
+SyncQueue,Throughput,6,1016,1190419.0,0.03,879222,218427,47
+SyncQueue,Throughput,6,988,1292174.0,0.03,832626,219105,50
+SyncQueue,Throughput,6,950,1279385.0,0.03,822584,219875,50
+SyncQueue,Throughput,6,945,1225503.0,0.03,881359,218270,48
+SyncQueue,Throughput,6,1027,1194509.0,0.03,821468,217371,46
+SyncQueue,Throughput,6,951,1183744.0,0.03,875567,219124,50
+SyncQueue,Throughput,6,1023,1181286.0,0.03,883050,218568,48
+SyncQueue,Throughput,6,1002,1196142.0,0.03,790535,218375,48
+SyncQueue,Throughput,6,997,1233312.0,0.03,857706,216758,43
+SyncQueue,Throughput,6,974,1186536.0,0.03,854591,217570,46
+SyncQueue,Throughput,6,1011,1187091.0,0.03,878698,218152,46
+SyncQueue,Throughput,6,1003,1194356.0,0.03,859499,217802,47
+SyncQueue,Throughput,6,1005,1196119.0,0.03,756233,217470,45
+SyncQueue,Throughput,6,1003,1232936.0,0.03,853014,217982,46
+SyncQueue,Throughput,6,1002,1188806.0,0.03,831651,217865,44
+SyncQueue,Throughput,6,1014,1283610.0,0.03,881035,219011,49
+SyncQueue,Throughput,6,919,1288560.0,0.03,864475,219182,50
+SyncQueue,Throughput,6,920,1252044.0,0.03,829335,218512,48
+SyncQueue,Throughput,6,975,1235217.0,0.03,880076,218284,48
+SyncQueue,Throughput,6,957,1243278.0,0.03,846251,216319,43
+SyncQueue,Throughput,6,1004,1214551.0,0.03,921605,217334,46
+SyncQueue,Throughput,6,1021,1187113.0,0.03,859973,218013,48
+SyncQueue,Throughput,6,975,1309605.0,0.03,779645,218900,48
+SyncQueue,Throughput,6,939,1295342.0,0.03,857604,218923,49
+SyncQueue,Throughput,6,936,1281054.0,0.03,832267,219085,48
+SyncQueue,Throughput,6,932,1280782.0,0.03,878326,218644,48
+SyncQueue,Throughput,6,994,1249409.0,0.03,863468,218313,46
+SyncQueue,Throughput,6,1006,1204130.0,0.03,826606,216878,43
+SyncQueue,Throughput,6,955,1203667.0,0.03,893648,217242,45
+SyncQueue,Throughput,6,986,1217049.0,0.03,831104,216900,45
+SyncQueue,Throughput,6,972,1216949.0,0.03,892290,216522,43
+SyncQueue,Throughput,6,1002,1234932.0,0.03,821334,217766,46
+SyncQueue,Throughput,6,1020,1190702.0,0.03,843558,218027,47
+Channel,Throughput,6,1057,1159253.0,0.03,888994,0,0
+Channel,Throughput,6,991,1167743.0,0.03,882841,0,0
+Channel,Throughput,6,950,1222255.0,0.03,881626,0,0
+Channel,Throughput,6,1046,1172210.0,0.03,888978,0,0
+Channel,Throughput,6,1036,1169310.0,0.03,892426,0,0
+Channel,Throughput,6,1009,1153547.0,0.03,911097,0,0
+Channel,Throughput,6,1027,1150893.0,0.03,885092,0,0
+Channel,Throughput,6,1064,1154776.0,0.03,887352,0,0
+Channel,Throughput,6,1044,1156382.0,0.03,934559,0,0
+Channel,Throughput,6,1052,1143873.0,0.03,895387,0,0
+Channel,Throughput,6,1042,1146531.0,0.03,914804,0,0
+Channel,Throughput,6,993,1207732.0,0.03,881739,0,0
+Channel,Throughput,6,1022,1168665.0,0.03,831656,0,0
+Channel,Throughput,6,1024,1158816.0,0.03,889368,0,0
+Channel,Throughput,6,1058,1142543.0,0.04,874847,0,0
+Channel,Throughput,6,1066,1137852.0,0.04,868535,0,0
+Channel,Throughput,6,1056,1138511.0,0.04,916622,0,0
+Channel,Throughput,6,1050,1149944.0,0.03,897900,0,0
+Channel,Throughput,6,1059,1137297.0,0.04,885733,0,0
+Channel,Throughput,6,1065,1171717.0,0.03,888307,0,0
+Channel,Throughput,6,1057,1146682.0,0.03,896191,0,0
+Channel,Throughput,6,1038,1148709.0,0.03,886067,0,0
+Channel,Throughput,6,1041,1145261.0,0.03,886079,0,0
+Channel,Throughput,6,1035,1160638.0,0.03,896927,0,0
+Channel,Throughput,6,1020,1167652.0,0.03,875978,0,0
+Channel,Throughput,6,1056,1152072.0,0.03,781817,0,0
+Channel,Throughput,6,1046,1172609.0,0.03,890104,0,0
+Channel,Throughput,6,1053,1157654.0,0.03,893907,0,0
+Channel,Throughput,6,1024,1140221.0,0.04,889810,0,0
+Channel,Throughput,6,1040,1188240.0,0.03,891179,0,0
+Channel,Throughput,6,1053,1157654.0,0.03,869391,0,0
+Channel,Throughput,6,1051,1165460.0,0.03,903680,0,0
+Channel,Throughput,6,1060,1146227.0,0.03,870189,0,0
+Channel,Throughput,6,979,1205372.0,0.03,857861,0,0
+Channel,Throughput,6,975,1190109.0,0.03,881629,0,0
+Channel,Throughput,6,954,1187719.0,0.03,895936,0,0
+Channel,Throughput,6,982,1179573.0,0.03,890888,0,0
+Channel,Throughput,6,960,1201946.0,0.03,886043,0,0
+Channel,Throughput,6,1004,1201594.0,0.03,855293,0,0
+Channel,Throughput,6,1027,1202705.0,0.03,681387,0,0
+Channel,Throughput,6,1014,1237647.0,0.03,843705,0,0
+Channel,Throughput,6,996,1234331.0,0.03,841104,0,0
+Channel,Throughput,6,987,1224322.0,0.03,814397,0,0
+Channel,Throughput,6,974,1222247.0,0.03,872244,0,0
+Channel,Throughput,6,981,1209594.0,0.03,761601,0,0
+Channel,Throughput,6,945,1220534.0,0.03,891793,0,0
+Channel,Throughput,6,939,1194720.0,0.03,888546,0,0
+Channel,Throughput,6,1059,1150999.0,0.03,892901,0,0
+Channel,Throughput,6,1044,1180824.0,0.03,861841,0,0
+Channel,Throughput,6,1032,1209501.0,0.03,895540,0,0
+Channel,Throughput,6,1047,1219105.0,0.03,854161,0,0
+Channel,Throughput,6,985,1186047.0,0.03,889755,0,0
+Channel,Throughput,6,1009,1171123.0,0.03,838456,0,0
+Channel,Throughput,6,876,1178845.0,0.03,894510,0,0
+Channel,Throughput,6,1039,1161810.0,0.03,887195,0,0
+Channel,Throughput,6,1053,1140961.0,0.04,891782,0,0
+Channel,Throughput,6,1063,1149699.0,0.03,879734,0,0
+Channel,Throughput,6,1054,1140696.0,0.04,893321,0,0
+Channel,Throughput,6,1045,1137990.0,0.04,874813,0,0
+Channel,Throughput,6,1050,1169745.0,0.03,828011,0,0
+Channel,Throughput,6,996,1186263.0,0.03,894695,0,0
+Channel,Throughput,6,1038,1197625.0,0.03,887815,0,0
+Channel,Throughput,6,1030,1153899.0,0.03,876032,0,0
+Channel,Throughput,6,1034,1142662.0,0.04,891227,0,0
+Channel,Throughput,6,1021,1148416.0,0.03,598364,0,0
+Channel,Throughput,6,1047,1142916.0,0.03,923619,0,0
+Channel,Throughput,6,1051,1148295.0,0.03,870905,0,0
+Channel,Throughput,6,1057,1154759.0,0.03,893911,0,0
+Channel,Throughput,6,1062,1142348.0,0.04,912403,0,0
+Channel,Throughput,6,976,1155954.0,0.03,895998,0,0
+Channel,Throughput,6,1056,1176106.0,0.03,882940,0,0
+Channel,Throughput,6,1028,1203889.0,0.03,876999,0,0
+Channel,Throughput,6,981,1190156.0,0.03,883826,0,0
+Channel,Throughput,6,985,1145343.0,0.03,881636,0,0
+Channel,Throughput,6,1029,1142447.0,0.04,876819,0,0
+Channel,Throughput,6,1057,1145901.0,0.03,899365,0,0
+Channel,Throughput,6,1056,1135520.0,0.04,872013,0,0
+Channel,Throughput,6,1033,1141209.0,0.04,888781,0,0
+Channel,Throughput,6,1058,1152603.0,0.03,872046,0,0
+Channel,Throughput,6,998,1152332.0,0.03,889934,0,0
+Channel,Throughput,6,994,1136520.0,0.04,871046,0,0
+Channel,Throughput,6,992,1150432.0,0.03,894154,0,0
+Channel,Throughput,6,1069,1162557.0,0.03,908127,0,0
+Channel,Throughput,6,1046,1159674.0,0.03,926013,0,0
+Channel,Throughput,6,1046,1156392.0,0.03,891849,0,0
+Channel,Throughput,6,1044,1150462.0,0.03,893772,0,0
+Channel,Throughput,6,1029,1144110.0,0.03,913945,0,0
+Channel,Throughput,6,1052,1151932.0,0.03,893405,0,0
+Channel,Throughput,6,952,1206793.0,0.03,876532,0,0
+Channel,Throughput,6,938,1179274.0,0.03,822538,0,0
+Channel,Throughput,6,1048,1202207.0,0.03,868878,0,0
+Channel,Throughput,6,1026,1158599.0,0.03,868300,0,0
+Channel,Throughput,6,1039,1187654.0,0.03,847154,0,0
+Channel,Throughput,6,994,1163320.0,0.03,886149,0,0
+Channel,Throughput,6,1035,1227906.0,0.03,874269,0,0
+Channel,Throughput,6,1003,1175069.0,0.03,860910,0,0
+Channel,Throughput,6,1062,1137378.0,0.04,866346,0,0
+Channel,Throughput,6,1048,1141983.0,0.04,910941,0,0
+Channel,Throughput,6,1047,1139680.0,0.04,869375,0,0
+Channel,Throughput,6,1024,1154394.0,0.03,890509,0,0

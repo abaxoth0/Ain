@@ -8,42 +8,39 @@ import (
 	"github.com/abaxoth0/Ain/errs"
 )
 
-// TODO: REWORK
-// Get rid of mutexes and use atomic operations instead
-
-// Concurrency-safe first-in-first-out queue
+// Concurrency-safe first-in-first-out (FIFO) queue.
 type SyncQueue[T comparable] struct {
-	sizeLimit int
+	sizeLimit int // 0 = no limit
 	elems     []T
-	mut       sync.Mutex
+	head      int // Index of the first element
+	mut       sync.RWMutex
 	cond      *sync.Cond
-	preserved T
+	preserved T // Preserved element for rollback operations
 }
 
-// To disable size limit set sizeLimit <= 0
+// Creates a new thread-safe queue with optional size limit.
+// To disable size limit, set sizeLimit <= 0.
 func NewSyncQueue[T comparable](sizeLimit int) *SyncQueue[T] {
 	q := new(SyncQueue[T])
 
 	q.cond = sync.NewCond(&q.mut)
 	q.sizeLimit = sizeLimit
+	q.elems = make([]T, 0, 16)
+	q.head = 0
 
 	return q
 }
 
-// Appends v to the end of queue
+// Appends v to the end of queue. Returns error if size limit is exceeded.
 func (q *SyncQueue[T]) Push(v T) error {
-	// second 'if' is nested to avoid redundant mutex lock\unlock
-	// (Size() method uses mutex) for queues without size limit.
-	// (it may still not do that if place this conditions together, but i'm not sure about that, so better play it safe)
-	if q.sizeLimit > 0 {
-		if q.Size() >= q.sizeLimit {
-			return errors.New("Queue size exceeded")
-		}
-	}
-
 	q.mut.Lock()
 
-	wasEmpty := len(q.elems) == 0
+	if q.sizeLimit > 0 && len(q.elems)-q.head >= q.sizeLimit {
+		q.mut.Unlock()
+		return errors.New("Queue size exceeded")
+	}
+
+	wasEmpty := len(q.elems) == q.head
 
 	q.elems = append(q.elems, v)
 
@@ -56,7 +53,8 @@ func (q *SyncQueue[T]) Push(v T) error {
 	return nil
 }
 
-// If queue isn't empty - returns first element of queue and true.
+// Returns the first element of the queue without removing it.
+// If queue isn't empty - returns first element and true.
 // If queue is empty - returns zero-value of T and false.
 func (q *SyncQueue[T]) Peek() (T, bool) {
 	q.mut.Lock()
@@ -64,13 +62,14 @@ func (q *SyncQueue[T]) Peek() (T, bool) {
 
 	var v T
 
-	if len(q.elems) == 0 {
+	if len(q.elems) == q.head {
 		return v, false
 	}
 
-	return q.elems[0], true
+	return q.elems[q.head], true
 }
 
+// Removes and returns the first element of the queue.
 // Same as Peek(), but also deletes first element in queue.
 func (q *SyncQueue[T]) Pop() (T, bool) {
 	q.mut.Lock()
@@ -78,29 +77,39 @@ func (q *SyncQueue[T]) Pop() (T, bool) {
 
 	var v T
 
-	if len(q.elems) == 0 {
+	if len(q.elems) == q.head {
 		return v, false
 	}
 
-	v = q.elems[0]
-	q.elems = q.elems[1:]
+	v = q.elems[q.head]
+	q.head++
 
-	if len(q.elems) == 0 {
+	if q.head >= cap(q.elems)/4 && q.head > 0 {
+		q.compact()
+	}
+
+	if len(q.elems) == q.head {
 		q.cond.Broadcast()
 	}
 
 	return v, true
 }
 
-// Pops n elements from the queue.
-// If n is greater then queue size, then to prevent panic n will be equated to the queue size.
-// If queue is empty - returns zero value of T and false.
+func (q *SyncQueue[T]) compact() {
+	newElems := make([]T, len(q.elems)-q.head)
+	copy(newElems, q.elems[q.head:])
+	q.elems = newElems
+	q.head = 0
+}
+
+// Removes and returns up to n elements from the queue.
+// If n is greater than queue size, n will be adjusted to the queue size to prevent panic.
+// If queue is empty - returns nil and false.
 func (q *SyncQueue[T]) PopN(n int) ([]T, bool) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	s := make([]T, n)
-	size := len(q.elems)
+	size := len(q.elems) - q.head
 
 	if size == 0 {
 		return nil, false
@@ -110,29 +119,34 @@ func (q *SyncQueue[T]) PopN(n int) ([]T, bool) {
 		n = size
 	}
 
-	s = q.elems[:n]
-	q.elems = q.elems[n:]
+	s := make([]T, n)
+	copy(s, q.elems[q.head:q.head+n])
+	q.head += n
 
-	if size == 0 {
+	if q.head >= cap(q.elems)/4 && q.head > 0 {
+		q.compact()
+	}
+
+	if len(q.elems) == q.head {
 		q.cond.Broadcast()
 	}
 
 	return s, true
 }
 
-// Preserves the head element of the queue
+// Saves the head element of the queue for potential rollback.
 func (q *SyncQueue[T]) Preserve() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	if len(q.elems) == 0 {
+	if len(q.elems) == q.head {
 		return
 	}
 
-	q.preserved = q.elems[0]
+	q.preserved = q.elems[q.head]
 }
 
-// Restores preserved element.
+// Restores the previously preserved element to the front of the queue.
 // Does nothing if no element was preserved.
 func (q *SyncQueue[T]) RollBack() {
 	q.mut.Lock()
@@ -144,34 +158,33 @@ func (q *SyncQueue[T]) RollBack() {
 		return
 	}
 
-	swap := make([]T, len(q.elems)+1)
+	swap := make([]T, len(q.elems)-q.head+1)
 
 	swap[0] = q.preserved
 	q.preserved = zero
 
-	for i, e := range q.elems {
-		swap[i+1] = e
-	}
-
+	copy(swap[1:], q.elems[q.head:])
 	q.elems = swap
+	q.head = 0
 }
 
-// Do what is supposed by it's name:
-// Just calls Preserve() and after that calls and returns Pop()
+// Preserves the current head element and then pops it from the queue.
+// This is equivalent to calling Preserve() followed by Pop().
 func (q *SyncQueue[T]) PreserveAndPop() (T, bool) {
 	q.Preserve()
 	return q.Pop()
 }
 
 func (q *SyncQueue[T]) Size() int {
-	q.mut.Lock() // If mutex was locked before this line will cause deadlock, be careful
-	l := len(q.elems)
-	q.mut.Unlock()
+	q.mut.RLock()
+	l := len(q.elems) - q.head
+	q.mut.RUnlock()
 	return l
 }
 
-// If timeout <= 0: Waits till 'waitCond' returns true.
-// If timeout > 0: Waits till either 'waitCond' returns true, either timeout exceeded.
+// Blocks until waitCond returns false or timeout occurs.
+// If timeout <= 0: waits until 'waitCond' returns false.
+// If timeout > 0: waits until either 'waitCond' returns false or timeout is exceeded.
 func (q *SyncQueue[T]) wait(timeout time.Duration, waitCond func() bool) error {
 	q.mut.Lock()
 	defer q.mut.Unlock()
@@ -217,60 +230,64 @@ func (q *SyncQueue[T]) wait(timeout time.Duration, waitCond func() bool) error {
 	return nil
 }
 
-// Waits till queue size is equal to 0.
-// To disable timeout set it to <= 0.
-// returns errs.StatusTimeout if timeout exceeded, nil otherwise.
+// Blocks until the queue becomes empty.
+// To disable timeout, set it to <= 0.
+// Returns errs.StatusTimeout if timeout exceeded, nil otherwise.
 func (q *SyncQueue[T]) WaitTillEmpty(timeout time.Duration) error {
 	q.mut.Lock()
 
-	if len(q.elems) == 0 {
+	if len(q.elems) == q.head {
 		q.mut.Unlock()
 		return nil
 	}
 
 	q.mut.Unlock()
 
-	return q.wait(timeout, func() bool { return len(q.elems) > 0 })
+	return q.wait(timeout, func() bool { return len(q.elems) > q.head })
 }
 
-// Waits till queue size is more then 0.
-// To disable timeout set it to <= 0.
-// returns errs.StatusTimeout if timeout exceeded, nil otherwise.
+// Blocks until the queue contains at least one element.
+// To disable timeout, set it to <= 0.
+// Returns errs.StatusTimeout if timeout exceeded, nil otherwise.
 func (q *SyncQueue[T]) WaitTillNotEmpty(timeout time.Duration) error {
 	q.mut.Lock()
 
-	if len(q.elems) > 0 {
+	if len(q.elems) > q.head {
 		q.mut.Unlock()
 		return nil
 	}
 
 	q.mut.Unlock()
 
-	return q.wait(timeout, func() bool { return len(q.elems) == 0 })
+	return q.wait(timeout, func() bool { return len(q.elems) == q.head })
 }
 
-// Get copy of []T that is used by this queue under the hood
+// Returns a copy of the internal slice containing all current queue elements.
 func (q *SyncQueue[T]) Unwrap() []T {
 	q.mut.Lock()
 
-	r := make([]T, len(q.elems))
+	size := len(q.elems) - q.head
+	r := make([]T, size)
 
-	copy(r, q.elems)
+	copy(r, q.elems[q.head:])
 
 	q.mut.Unlock()
 
 	return r
 }
 
-// Same as Unwrap, but also deletes all elements in queue
+// Returns a copy of all current queue elements and removes them from the queue.
+// Same as Unwrap, but also deletes all elements in queue.
 func (q *SyncQueue[T]) UnwrapAndFlush() []T {
 	q.mut.Lock()
 
-	r := make([]T, len(q.elems))
+	size := len(q.elems) - q.head
+	r := make([]T, size)
 
-	copy(r, q.elems)
+	copy(r, q.elems[q.head:])
 
-	q.elems = []T{}
+	q.elems = make([]T, 0, cap(q.elems))
+	q.head = 0
 
 	q.mut.Unlock()
 

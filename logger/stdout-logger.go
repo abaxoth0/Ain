@@ -5,7 +5,6 @@ import (
 	"os"
 )
 
-// Satisfies Logger interface
 type stdoutLogger struct {
 	logger *log.Logger
 }
@@ -25,7 +24,7 @@ func (l stdoutLogger) log(entry *LogEntry) {
 }
 
 func (l stdoutLogger) Log(entry *LogEntry) {
-	if ok := preprocess(entry, nil); !ok {
+	if ok := preprocess(entry, nil, nil); !ok {
 		return
 	}
 

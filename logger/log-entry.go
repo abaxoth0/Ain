@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"strings"
 	"time"
 
 	"github.com/abaxoth0/Ain/structs"
@@ -37,7 +36,7 @@ func (s logLevel) String() string {
 	return logLevelToStrMap[s]
 }
 
-// Returns colour for SGR sequence (ANSI X3.64)
+// Returns colour code for SGR sequence (ANSI X3.64)
 func (level logLevel) getColour() string {
 	switch level {
 	case TraceLogLevel:
@@ -53,11 +52,12 @@ func (level logLevel) getColour() string {
 	case FatalLogLevel, PanicLogLevel:
 		return "35" // magenta
 	}
-	panic("Unknow logLevel")
+	panic("Unknown logLevel")
 }
 
+// Represents a single log entry with all its metadata.
 type LogEntry struct {
-	rawLevel  logLevel
+	rawLevel  logLevel     // Internal log level representation
 	Timestamp time.Time    `json:"ts"`
 	Service   string       `json:"service"`
 	Instance  string       `json:"instance"`
@@ -68,43 +68,43 @@ type LogEntry struct {
 	Meta      structs.Meta `json:"meta,omitempty"`
 }
 
-var (
-	appName     string = "undefined"
-	appInstance string = "undefined"
-)
-
-func SetApplicationName(name string) {
-	name = strings.Trim(name, " \r\n")
-	if name == "" {
-		return
-	}
-	appName = name
+// Configuration for loggers.
+type LoggerConfig struct {
+	Debug           bool   // Enable debug level logging
+	Trace           bool   // Enable trace level logging (most verbose)
+	ApplicationName string // Name of the application/service
+	AppInstance     string // Instance identifier of the application
 }
 
-func GetApplicationName() string {
-	return appName
-}
-
-func SetApplicationInstance(instance string) {
-	instance = strings.Trim(instance, " \r\n")
-	if instance == "" {
-		return
-	}
-	appInstance = instance
-}
-
-func GetApplicationInstance() string {
-	return appInstance
+var DefaultConfig = &LoggerConfig{
+	ApplicationName: "undefined",
+	AppInstance:     "undefined",
 }
 
 // Creates a new log entry. Timestamp is time.Now().
 // If level is not error, fatal or panic, then Error will be empty, even if err specified.
 func NewLogEntry(level logLevel, src string, msg string, err string, meta structs.Meta) LogEntry {
+	return NewLogEntryWithConfig(level, src, msg, err, meta, DefaultConfig)
+}
+
+// Will use DefaultConfig if config is nil
+func NewLogEntryWithConfig(
+	level logLevel,
+	src string,
+	msg string,
+	err string,
+	meta structs.Meta,
+	config *LoggerConfig,
+) LogEntry {
+	if config == nil {
+		config = DefaultConfig
+	}
+
 	e := LogEntry{
 		rawLevel:  level,
 		Timestamp: time.Now(),
-		Service:   appName,
-		Instance:  appInstance,
+		Service:   config.ApplicationName,
+		Instance:  config.AppInstance,
 		Level:     level.String(),
 		Source:    src,
 		Message:   msg,

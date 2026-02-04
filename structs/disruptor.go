@@ -7,25 +7,31 @@ import (
 )
 
 const (
-	BufferSize      = 1 << 16 // Must be a power of 2 for correct indexing
-	BufferIndexMask = BufferSize - 1
+	// DefaultBufferSize is the default buffer size (64K entries)
+	DefaultBufferSize = 1 << 16
+	// MinBufferSize is the minimum buffer size (64 entries)
+	MinBufferSize = 1 << 6
 )
 
 var yieldWaiter = yieldSeqWait{}
 
+// Represents an atomic sequence number with padding to prevent false sharing.
 type sequence struct {
 	Value atomic.Int64
-	// Padding to prevent false sharing
+	// Padding to prevent false sharing on cache lines
 	_padding [56]byte
 }
 
+// Defines an interface for waiting on sequence values.
 type seqWaiter interface {
+	// Waits until either sequence is greater or equal to cursor, or done is closed.
 	WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 }
 
+// Implements a yielding wait strategy that sleeps briefly between checks.
 type yieldSeqWait struct{}
 
-// Waits till either sequence is greater or equal cursor, either done is closed
+// Waits until either sequence is greater than or equal to cursor, or done is closed.
 func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{}) {
 	for cursor.Value.Load() < seq {
 		select {
@@ -37,39 +43,59 @@ func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 	}
 }
 
-// Implements LMAX Disruptor
+// Implements the LMAX Disruptor pattern for high-performance ring buffer messaging.
 type Disruptor[T any] struct {
-	buffer [BufferSize]T
-	writer sequence // write position (starts at -1)
-	reader sequence // read position (starts at -1)
-	waiter seqWaiter
-	closed atomic.Bool
-	done   chan struct{}
+	buffer     []T
+	bufferSize int       // must be power of 2
+	bufferMask int64     // Mask for modulo operations (bufferSize - 1)
+	writer     sequence  // Write cursor position (starts at -1)
+	reader     sequence  // Read cursor position (starts at -1)
+	waiter     seqWaiter // Wait strategy for consumers
+	closed     atomic.Bool
+	done       chan struct{}
 }
 
+// creates a new Disruptor with default buffer size (64K)
 func NewDisruptor[T any]() *Disruptor[T] {
-	// If is not power of two
-	if BufferSize&(BufferSize-1) != 0 {
-		panic(fmt.Sprintf("invalid disruptor buffer size - %d: it must be a power of two", BufferSize))
+	dis, err := NewDisruptorWithSize[T](DefaultBufferSize)
+	if err != nil {
+		panic(err)
+	}
+	return dis
+}
+
+// Creates a new Disruptor with specified buffer size.
+// Buffer size must be a power of 2 and at least MinBufferSize.
+func NewDisruptorWithSize[T any](size int) (*Disruptor[T], error) {
+	// Validate size
+	if size < MinBufferSize {
+		return nil, fmt.Errorf("Disruptor buffer size %d is too small (minimum: %d)", size, MinBufferSize)
+	}
+	if size&(size-1) != 0 {
+		return nil, fmt.Errorf("Disruptor buffer size %d must be a power of two", size)
 	}
 
 	d := &Disruptor[T]{
-		done:   make(chan struct{}),
-		waiter: yieldWaiter,
+		buffer:     make([]T, size),
+		bufferSize: size,
+		bufferMask: int64(size - 1),
+		done:       make(chan struct{}),
+		waiter:     yieldWaiter,
 	}
 	d.writer.Value.Store(-1)
 	d.reader.Value.Store(-1)
-	return d
+	return d, nil
 }
 
-// Closes Disruptor, after that it can't be started again.
+// Closes the Disruptor and signals all goroutines to stop.
+// After closing, the disruptor cannot be used again.
 func (d *Disruptor[T]) Close() {
 	close(d.done)
 	// Set closed flag immediately if no consumer is running
 	d.closed.Store(true)
 }
 
-// IsEmpty returns true if all entries have been processed
+// Returns true if all entries have been processed
 func (d *Disruptor[T]) IsEmpty() bool {
 	return d.writer.Value.Load() == d.reader.Value.Load()
 }
@@ -94,7 +120,9 @@ func (d *Disruptor[T]) IsEmpty() bool {
 	So to mitigate this false positives Publish() and Consume() have go:norace directive enabled.
 */
 
-// Returns false if buffer is overflowed or if Disruptor is closed
+// Attempts to add an entry to the disruptor buffer.
+// Returns false if buffer is full or if Disruptor is closed.
+//
 //go:norace
 func (d *Disruptor[T]) Publish(entry T) bool {
 	for {
@@ -108,25 +136,28 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 
 			// Check if buffer is full
 			// NOTE: For buffer sizes ≤ 8, use (nextWriter - reader) > (BufferSize - 1) condition
-			// to avoid off-by-one overwrites. For larger buffers (≥1024) keep current condition
-			if nextWriter-reader >= BufferSize {
+			// to avoid off-by-one overwrites. For larger buffers (≥1024) keep current condition.
+			if nextWriter-reader >= int64(d.bufferSize) {
 				return false
 			}
 
 			// Try to atomically advance the writer using CAS
 			// Only one goroutine will succeed in this CAS, preventing race conditions
-			// between concurrent publishers trying to claim the same slot
+			// between concurrent publishers trying to claim the same slot.
 			if d.writer.Value.CompareAndSwap(writer, nextWriter) {
 				// The CAS provides a memory barrier (release semantics) ensuring buffer write
-				// is visible to consumers before they see the updated writer cursor
-				d.buffer[nextWriter&BufferIndexMask] = entry
+				// is visible to consumers before they see the updated writer cursor.
+				d.buffer[nextWriter&d.bufferMask] = entry
 				return true
 			}
-			// CAS failed - another publisher claimed this slot, retry
+			// CAS failed - another publisher claimed this slot, retry.
 		}
 	}
 }
 
+// Starts consuming entries from the disruptor using the provided handler.
+// This method blocks until the disruptor is closed. Returns error if disruptor is already closed.
+//
 //go:norace
 func (d *Disruptor[T]) Consume(handler func(T)) error {
 	if d.closed.Load() {
@@ -150,7 +181,7 @@ func (d *Disruptor[T]) Consume(handler func(T)) error {
 		}
 
 		for i := claimed; i <= writer; i++ {
-			entry := d.buffer[i&BufferIndexMask]
+			entry := d.buffer[i&d.bufferMask]
 			handler(entry)
 			d.reader.Value.Store(i)
 		}

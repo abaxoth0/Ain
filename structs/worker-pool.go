@@ -10,17 +10,22 @@ import (
 	"github.com/abaxoth0/Ain/errs"
 )
 
+// Represents an executable task that can be processed by a worker pool.
 type Task interface {
+	// Executes the task's logic.
 	Process()
 }
 
+// Holds configuration options for a worker pool.
 type WorkerPoolOptions struct {
-	// Default: 1. If <= 0, then will be set to the default
+	// Default: 1. If <= 0, will be set to default.
 	BatchSize int
-	// Default: 1s. If <= 0, then will be set to the default
+	// Maximum time to wait for tasks to complete on shutdown.
+	// Default: 1s. If <= 0, will be set to default.
 	StopTimeout time.Duration
 }
 
+// Manages a pool of goroutine workers that process tasks concurrently.
 type WorkerPool struct {
 	canceled atomic.Bool
 	queue    *SyncQueue[Task]
@@ -38,8 +43,8 @@ const (
 	workerPoolDefaultStopTimeout time.Duration = 1 * time.Second
 )
 
-// Creates new worker pool with parent context and options.
-// If opt is nil then it will be created using default values of WorkerPoolOptions fields.
+// Creates a new worker pool with the given parent context and options.
+// If opt is nil, it will be created using default values of WorkerPoolOptions fields.
 func NewWorkerPool(ctx context.Context, opt *WorkerPoolOptions) *WorkerPool {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -65,6 +70,8 @@ func NewWorkerPool(ctx context.Context, opt *WorkerPoolOptions) *WorkerPool {
 	}
 }
 
+// Starts the worker pool with the specified number of worker goroutines.
+// This method is idempotent - subsequent calls will have no effect.
 func (wp *WorkerPool) Start(workerCount int) {
 	wp.once.Do(func() {
 		for range workerCount {
@@ -73,6 +80,8 @@ func (wp *WorkerPool) Start(workerCount int) {
 	})
 }
 
+// Attempts to process remaining tasks within the timeout period.
+// Returns nil if all tasks processed, errs.StatusTimeout if timeout exceeded.
 func (wp *WorkerPool) stop() error {
 	timeout := time.After(wp.opt.StopTimeout)
 	for {
@@ -89,6 +98,7 @@ func (wp *WorkerPool) stop() error {
 	}
 }
 
+// Main worker loop that processes tasks from the queue.
 func (wp *WorkerPool) work() {
 	for {
 		select {
@@ -111,6 +121,7 @@ func (wp *WorkerPool) work() {
 	}
 }
 
+// Executes a batch of tasks and manages the WaitGroup.
 func (wp *WorkerPool) process(tasks []Task) {
 	wp.wgMu.Lock()
 	wp.wg.Add(1)
@@ -126,13 +137,14 @@ func (wp *WorkerPool) executeTasks(tasks []Task) {
 	}
 }
 
+// Returns true if the worker pool has been canceled.
 func (wp *WorkerPool) IsCanceled() bool {
 	return wp.canceled.Load()
 }
 
-// Cancels worker pool.
-// Worker pool will finish all its tasks before stopping.
-// Once canceled, worker pool can't be started again.
+// Gracefully shuts down the worker pool.
+// The worker pool will finish all its tasks before stopping.
+// Once canceled, the worker pool cannot be started again.
 func (wp *WorkerPool) Cancel() error {
 	if wp.canceled.Load() {
 		return errors.New("worker pool is already canceled")
@@ -147,7 +159,7 @@ func (wp *WorkerPool) Cancel() error {
 	return nil
 }
 
-// Pushes a new task into a worker pool.
+// Adds a new task to the worker pool queue.
 // Returns error if worker pool is canceled.
 func (wp *WorkerPool) Push(t Task) error {
 	if wp.canceled.Load() {
