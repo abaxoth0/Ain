@@ -73,15 +73,6 @@ func handleCritical(entry *LogEntry) {
 }
 
 var (
-	Default = func() *FileLogger {
-		logger, err := NewFileLogger(&FileLoggerConfig{
-			Path: "/tmp/ain-logs",
-		})
-		if err != nil {
-			fileLog.Fatal("Failed to initialize default logger", err.Error(), nil)
-		}
-		return logger
-	}()
 	Stdout = newStdoutLogger()
 	Stderr = newStderrLogger()
 )
