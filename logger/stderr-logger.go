@@ -5,15 +5,14 @@ import (
 	"os"
 )
 
-// Satisfies Logger interface
 type stderrLogger struct {
 	logger *log.Logger
 }
 
 func newStderrLogger() *stderrLogger {
 	return &stderrLogger{
-		// log package sends logs into stderr by default
-		// but i want to add prefix to logs and possibility to adjust the flags
+		// log package sends logs to stderr by default
+		// but we want to add prefix to logs and ability to adjust the flags
 		logger: log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime),
 	}
 }

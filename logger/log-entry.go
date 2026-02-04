@@ -36,7 +36,7 @@ func (s logLevel) String() string {
 	return logLevelToStrMap[s]
 }
 
-// Returns colour for SGR sequence (ANSI X3.64)
+// Returns colour code for SGR sequence (ANSI X3.64)
 func (level logLevel) getColour() string {
 	switch level {
 	case TraceLogLevel:
@@ -52,11 +52,12 @@ func (level logLevel) getColour() string {
 	case FatalLogLevel, PanicLogLevel:
 		return "35" // magenta
 	}
-	panic("Unknow logLevel")
+	panic("Unknown logLevel")
 }
 
+// Represents a single log entry with all its metadata.
 type LogEntry struct {
-	rawLevel  logLevel
+	rawLevel  logLevel     // Internal log level representation
 	Timestamp time.Time    `json:"ts"`
 	Service   string       `json:"service"`
 	Instance  string       `json:"instance"`
@@ -67,11 +68,12 @@ type LogEntry struct {
 	Meta      structs.Meta `json:"meta,omitempty"`
 }
 
+// Configuration for loggers.
 type LoggerConfig struct {
-	Debug           bool
-	Trace           bool
-	ApplicationName string
-	AppInstance     string
+	Debug           bool   // Enable debug level logging
+	Trace           bool   // Enable trace level logging (most verbose)
+	ApplicationName string // Name of the application/service
+	AppInstance     string // Instance identifier of the application
 }
 
 var DefaultConfig = &LoggerConfig{

@@ -5,8 +5,11 @@ import (
 	"slices"
 )
 
+// Represents metadata as a map of string keys to any values.
 type Meta map[string]any
 
+// Returns a formatted string representation of well-known metadata properties.
+// Only properties registered as well-known will be included in the output.
 func (m Meta) String() string {
 	if m == nil || len(wellKnownMetaProperties) == 0 {
 		return ""
@@ -29,9 +32,10 @@ func (m Meta) String() string {
 	return "(" + s + ")"
 }
 
+// stores globally registered well-known metadata property names.
 var wellKnownMetaProperties []string
 
-// Adds a new well-known meta property(-s), but only if it doesn't already exist.
+// Adds new well-known meta properties, but only if they don't already exist.
 func AddWellKnownMetaProperties(props ...string) {
 	for _, prop := range props {
 		if HasWellKnownMetaProperty(prop) {
@@ -41,19 +45,19 @@ func AddWellKnownMetaProperties(props ...string) {
 	}
 }
 
-// Reports if specified property exists is well-known meta properties.
+// Reports if the specified property exists in well-known meta properties.
 func HasWellKnownMetaProperty(prop string) bool {
 	return slices.Contains(wellKnownMetaProperties, prop)
 }
 
-// Remove specified well-known meta property(-s).
+// Removes specified well-known meta properties.
 func RemoveWellKnownMetaProperties(props ...string) {
 	wellKnownMetaProperties = slices.DeleteFunc(wellKnownMetaProperties, func(prop string) bool {
 		return slices.Contains(props, prop)
 	})
 }
 
-// Returns a copy of a slice with all well-known meta properties
+// Returns a copy of a slice with all well-known meta properties.
 func GetWellKnownMetaProperties() []string {
 	r := make([]string, len(wellKnownMetaProperties))
 	copy(r, wellKnownMetaProperties)

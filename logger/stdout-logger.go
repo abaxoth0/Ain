@@ -5,7 +5,6 @@ import (
 	"os"
 )
 
-// Satisfies Logger interface
 type stdoutLogger struct {
 	logger *log.Logger
 }

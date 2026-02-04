@@ -25,17 +25,20 @@ const (
 	stopTimeout       = time.Second * 10
 )
 
+// Configuration for file-based loggers.
 type FileLoggerConfig struct {
-	// Path to the directory with logs
-	Path 	 string
+	// Path to the directory where log files will be stored
+	Path string
+	// File permissions for log files (default: 0644)
 	FilePerm os.FileMode
 
-	*LoggerConfig
+	*LoggerConfig // Embedded logger configuration
 }
 
+// Default file permission for log files (rw-r--r--).
 const FileLoggerDefaultFilePerm os.FileMode = 0644
 
-// Satisfies Logger and ForwardingLogger interfaces
+// Implements concurrent file-based logging with forwarding capabilities.
 type FileLogger struct {
 	isInit       bool
 	done         chan struct{}
@@ -98,7 +101,7 @@ func (l *FileLogger) Init() {
 	)
 
 	f, err := os.OpenFile(
-		path.Join(l.config.Path,fileName),
+		path.Join(l.config.Path, fileName),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 		l.config.FilePerm,
 	)
@@ -197,7 +200,7 @@ func (l *FileLogger) handler(entry *LogEntry) {
 	}
 
 	if stream.Buffered() > 0 {
-		// Without this all logs will be written in single line
+		// Add newline to ensure each log entry is on its own line
 		stream.WriteRaw("\n")
 	}
 
@@ -253,5 +256,5 @@ func (l *FileLogger) RemoveForwarding(logger Logger) error {
 		}
 	}
 
-	return errors.New("forwarding now found")
+	return errors.New("forwarding not found")
 }
