@@ -325,6 +325,9 @@ func TestDisruptorConcurrency(t *testing.T) {
 			})
 		}()
 
+		// Small delay to ensure consumer starts before publishers
+		time.Sleep(1 * time.Millisecond)
+
 		var wg sync.WaitGroup
 		for i := range numPublishers {
 			wg.Add(1)
