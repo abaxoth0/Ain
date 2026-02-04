@@ -115,8 +115,6 @@ The Disruptor implementation provides high-throughput, low-latency messaging sui
 
 Benchmark results and performance characteristics are documented in the [BENCHMARKS.md](BENCHMARKS.md).
 
-## Contributing
-
 **Current Performance Summary (100 iterations, statistical analysis):**
 - **Single Operations**: Disruptor 69.3B ops/s (0.01±0.00ns), Channels 42.5M ops/s (23.55±0.21ns), SyncQueue 14.2M ops/s (70.43±11.0ns)
 - **Throughput**: Channels 876K±42K items/sec (most stable), Disruptor 834K±145K (competitive, higher variance), SyncQueue 832K±81K (surprisingly competitive)
