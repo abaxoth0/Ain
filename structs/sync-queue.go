@@ -10,12 +10,12 @@ import (
 
 // Concurrency-safe first-in-first-out (FIFO) queue.
 type SyncQueue[T comparable] struct {
-	sizeLimit int          // 0 = no limit
+	sizeLimit int // 0 = no limit
 	elems     []T
-	head      int          // Index of the first element
+	head      int // Index of the first element
 	mut       sync.RWMutex
 	cond      *sync.Cond
-	preserved T            // Preserved element for rollback operations
+	preserved T // Preserved element for rollback operations
 }
 
 // Creates a new thread-safe queue with optional size limit.

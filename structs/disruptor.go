@@ -46,11 +46,11 @@ func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 // Implements the LMAX Disruptor pattern for high-performance ring buffer messaging.
 type Disruptor[T any] struct {
 	buffer     []T
-	bufferSize int           // must be power of 2
-	bufferMask int64         // Mask for modulo operations (bufferSize - 1)
-	writer     sequence      // Write cursor position (starts at -1)
-	reader     sequence      // Read cursor position (starts at -1)
-	waiter     seqWaiter     // Wait strategy for consumers
+	bufferSize int       // must be power of 2
+	bufferMask int64     // Mask for modulo operations (bufferSize - 1)
+	writer     sequence  // Write cursor position (starts at -1)
+	reader     sequence  // Read cursor position (starts at -1)
+	waiter     seqWaiter // Wait strategy for consumers
 	closed     atomic.Bool
 	done       chan struct{}
 }

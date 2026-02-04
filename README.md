@@ -34,7 +34,7 @@ go get github.com/abaxoth0/Ain
 
 ## Packages
 
-### `structs` - Concurrent Data Structures
+### `structs` - Data Structures
 
 #### Disruptor
 A high-performance, lock-free ring buffer implementation based on the LMAX Disruptor pattern.
