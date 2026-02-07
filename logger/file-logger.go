@@ -20,23 +20,47 @@ import (
 var fileLog = NewSource("LOGGER", Stderr)
 
 const (
-	fallbackBatchSize = 500
-	fallbackWorkers   = 5
-	stopTimeout       = time.Second * 10
+	DefaultFallbackBatchSize = 500
+	DefaultFallbackWorkers   = 5
+	DefaultStopTimeout       = time.Second * 10
+	// Default file permission for log files (rw-r--r--).
+	FileLoggerDefaultFilePerm os.FileMode = 0644
 )
 
-// Configuration for file-based loggers.
 type FileLoggerConfig struct {
 	// Path to the directory where log files will be stored
-	Path string
-	// File permissions for log files (default: 0644)
-	FilePerm os.FileMode
+	Path 			  string
+	// File permissions for log files
+	FilePerm 		  os.FileMode //Default: 0644
+	// Amount of goroutines in fallback WorkerPool (which is used only when main ring buffer is overflowed).
+	FallbackWorkers   int // Default: 5
+	FallbackBatchSize int // Default: 500
+	StopTimeout		  time.Duration // Default: 10 sec; To disable set to < 0
 
-	*LoggerConfig // Embedded logger configuration
+	*LoggerConfig
 }
 
-// Default file permission for log files (rw-r--r--).
-const FileLoggerDefaultFilePerm os.FileMode = 0644
+func (c *FileLoggerConfig) fillEmptySettings() {
+	if c.FilePerm == 0 {
+		c.FilePerm = FileLoggerDefaultFilePerm
+	}
+	if c.LoggerConfig == nil {
+		c.LoggerConfig = DefaultConfig
+	}
+	if c.FallbackWorkers <= 0 {
+		c.FallbackWorkers = DefaultFallbackWorkers
+	}
+	if c.FallbackBatchSize <= 0 {
+		c.FallbackBatchSize = DefaultFallbackBatchSize
+	}
+	if c.StopTimeout == 0 {
+		c.StopTimeout = DefaultStopTimeout
+	}
+	// To disable timeout just set it to maximum possible value for time.Duration
+	if c.StopTimeout < 0 {
+		c.StopTimeout = time.Duration((1 << 63) - 1)
+	}
+}
 
 // Implements concurrent file-based logging with forwarding capabilities.
 type FileLogger struct {
@@ -53,33 +77,20 @@ type FileLogger struct {
 	config       *FileLoggerConfig
 }
 
+
 func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	if config == nil {
 		return nil, errors.New("FileLogger config is nil")
 	}
-	info, err := os.Stat(path.Dir(config.Path))
-	if err != nil {
-		return nil, err
-	}
-	if !info.IsDir() {
-		return nil, errors.New("Specified file isn't directory")
-	}
-	if config.FilePerm == 0 {
-		config.FilePerm = FileLoggerDefaultFilePerm
-	}
-	if err := os.MkdirAll(config.Path, config.FilePerm); err != nil {
-		return nil, err
-	}
-	if config.LoggerConfig == nil {
-		config.LoggerConfig = DefaultConfig
-	}
+
+	config.fillEmptySettings()
 
 	logger := &FileLogger{
 		done:      make(chan struct{}),
 		disruptor: structs.NewDisruptor[*LogEntry](),
 		fallback: structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
-			BatchSize:   fallbackBatchSize,
-			StopTimeout: stopTimeout,
+			BatchSize:   config.FallbackBatchSize,
+			StopTimeout: config.StopTimeout,
 		}),
 		forwardings: []Logger{},
 		streamPool: sync.Pool{
@@ -94,7 +105,18 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	return logger, nil
 }
 
-func (l *FileLogger) Init() {
+func (l *FileLogger) Init() error {
+	info, err := os.Stat(path.Dir(l.config.Path))
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return errors.New("file at Path isn't directory")
+	}
+	if err := os.MkdirAll(l.config.Path, l.config.FilePerm); err != nil {
+		return err
+	}
+
 	fileName := fmt.Sprintf(
 		"%s:%s[%s].log",
 		l.config.ApplicationName, l.config.AppInstance, time.Now().Format(time.RFC3339),
@@ -106,7 +128,7 @@ func (l *FileLogger) Init() {
 		l.config.FilePerm,
 	)
 	if err != nil {
-		fileLog.Fatal("Failed to initialize log module (can't open/create log file)", err.Error(), nil)
+		return err
 	}
 
 	logger := log.New(f, "", log.LstdFlags|log.Lmicroseconds)
@@ -115,6 +137,8 @@ func (l *FileLogger) Init() {
 	l.logFile = f
 	l.taskProducer = newTaskProducer(l)
 	l.isInit = true
+
+	return nil
 }
 
 func (l *FileLogger) Start() error {
@@ -129,15 +153,15 @@ func (l *FileLogger) Start() error {
 	// canceled WorkerPool can't be started
 	if l.fallback.IsCanceled() {
 		l.fallback = structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
-			BatchSize:   fallbackBatchSize,
-			StopTimeout: stopTimeout,
+			BatchSize:   l.config.FallbackBatchSize,
+			StopTimeout: l.config.StopTimeout,
 		})
 	}
 
 	l.isRunning.Store(true)
 
 	go l.disruptor.Consume(l.handler)
-	go l.fallback.Start(fallbackWorkers)
+	go l.fallback.Start(l.config.FallbackWorkers)
 
 	return nil
 }
@@ -152,7 +176,7 @@ func (l *FileLogger) Stop() error {
 	l.disruptor.Close()
 
 	disruptorDone := false
-	timeout := time.After(stopTimeout)
+	timeout := time.After(l.config.StopTimeout)
 
 	for !disruptorDone {
 		select {
