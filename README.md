@@ -20,6 +20,7 @@ Please see the [LICENSE](LICENSE) file for the full license text.
 - **High-Performance Data Structures**: Lock-free ring buffer (Disruptor), thread-safe queues, worker pools
 - **Logging System**: Flexible, multi-level logging with forwarding capabilities
 - **Error Handling**: Structured error types with HTTP status codes
+- **Retry Mechanism**: Exponential backoff with jitter for resilient operations
 - **Common Utilities**: Reusable helper functions
 
 ## Installation
@@ -99,6 +100,22 @@ err := errs.NewStatusError("Invalid request", http.StatusBadRequest)
 ### `common` - Utility Functions
 
 Common helper functions for everyday Go programming.
+
+#### Retry Mechanism
+Retry functionality to handle transient failures.
+
+```go
+config := &common.RetryConfig{
+    MaxAttempts:  3,
+    MaxBackoff:   time.Second * 5,
+    BackoffScale: time.Millisecond * 100,
+}
+
+err := common.Retry(func() error {
+    return makeAPICall() // Your operation here
+}, config)
+```
+#### Other Utilities
 
 ```go
 // Ternary operator
