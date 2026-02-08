@@ -9,7 +9,6 @@ type Logger interface {
 	// Processes a log entry according to the logger's implementation.
 	Log(entry *LogEntry)
 
-	// Internal method that performs the actual logging without side effects.
 	// This method must not cause any side effects. It's required for ForwardingLogger to work correctly.
 	// For example, an entry with panic level won't cause panic when
 	// forwarded to another logger, only when the main logger handles it.
@@ -35,7 +34,7 @@ type ForwardingLogger interface {
 	// (entry will be the same for all loggers)
 	//
 	// Can't bind to self. Can't bind to one logger more than once.
-	NewForwarding(logger Logger) error
+	AddForwarding(logger Logger) error
 
 	// Removes existing forwarding.
 	// Returns error if forwarding to specified logger doesn't exist.
@@ -47,7 +46,7 @@ type ForwardingLogger interface {
 // Will use DefaultConfig if config is nil.
 func preprocess(entry *LogEntry, forwardings []Logger, config *LoggerConfig) bool {
 	if config == nil {
-		config = DefaultConfig
+		config = defaultLoggerConfig
 	}
 
 	if entry.rawLevel == DebugLogLevel && !config.Debug {
@@ -79,8 +78,3 @@ func handleCritical(entry *LogEntry) {
 	}
 	os.Exit(1)
 }
-
-var (
-	Stdout = newStdoutLogger()
-	Stderr = newStderrLogger()
-)

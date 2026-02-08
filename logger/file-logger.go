@@ -16,70 +16,77 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-// Used for this package logs (mostly for errors).
-var fileLog = NewSource("LOGGER", Stderr)
-
 const (
-	fallbackBatchSize = 500
-	fallbackWorkers   = 5
-	stopTimeout       = time.Second * 10
+	DefaultFallbackBatchSize = 500
+	DefaultFallbackWorkers   = 5
+	DefaultStopTimeout       = time.Second * 10
+	// Default file permission for log files (rw-r--r--).
+	FileLoggerDefaultFilePerm os.FileMode = 0644
 )
 
-// Configuration for file-based loggers.
 type FileLoggerConfig struct {
 	// Path to the directory where log files will be stored
 	Path string
-	// File permissions for log files (default: 0644)
-	FilePerm os.FileMode
+	// File permissions for log files
+	FilePerm os.FileMode //Default: 0644
+	// Amount of goroutines in fallback WorkerPool (which is used only when main ring buffer is overflowed).
+	FallbackWorkers   int           // Default: 5
+	FallbackBatchSize int           // Default: 500
+	StopTimeout       time.Duration // Default: 10 sec; To disable set to < 0
 
-	*LoggerConfig // Embedded logger configuration
+	*LoggerConfig
 }
 
-// Default file permission for log files (rw-r--r--).
-const FileLoggerDefaultFilePerm os.FileMode = 0644
+func (c *FileLoggerConfig) fillEmptySettings() {
+	if c.FilePerm == 0 {
+		c.FilePerm = FileLoggerDefaultFilePerm
+	}
+	if c.LoggerConfig == nil {
+		c.LoggerConfig = defaultLoggerConfig
+	}
+	if c.FallbackWorkers <= 0 {
+		c.FallbackWorkers = DefaultFallbackWorkers
+	}
+	if c.FallbackBatchSize <= 0 {
+		c.FallbackBatchSize = DefaultFallbackBatchSize
+	}
+	if c.StopTimeout == 0 {
+		c.StopTimeout = DefaultStopTimeout
+	}
+	// To disable timeout just set it to maximum possible value for time.Duration
+	if c.StopTimeout < 0 {
+		c.StopTimeout = time.Duration((1 << 63) - 1)
+	}
+}
 
 // Implements concurrent file-based logging with forwarding capabilities.
 type FileLogger struct {
+	config       *FileLoggerConfig
 	isInit       bool
-	done         chan struct{}
 	isRunning    atomic.Bool
-	disruptor    *structs.Disruptor[*LogEntry]
+	done         chan struct{}
+	buffer       *structs.Disruptor[*LogEntry]
 	fallback     *structs.WorkerPool
 	logger       *log.Logger
 	logFile      *os.File
 	forwardings  []Logger
 	taskProducer func(entry *LogEntry) *logTask
 	streamPool   sync.Pool
-	config       *FileLoggerConfig
 }
 
 func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	if config == nil {
 		return nil, errors.New("FileLogger config is nil")
 	}
-	info, err := os.Stat(path.Dir(config.Path))
-	if err != nil {
-		return nil, err
-	}
-	if !info.IsDir() {
-		return nil, errors.New("Specified file isn't directory")
-	}
-	if config.FilePerm == 0 {
-		config.FilePerm = FileLoggerDefaultFilePerm
-	}
-	if err := os.MkdirAll(config.Path, config.FilePerm); err != nil {
-		return nil, err
-	}
-	if config.LoggerConfig == nil {
-		config.LoggerConfig = DefaultConfig
-	}
+
+	config.fillEmptySettings()
 
 	logger := &FileLogger{
-		done:      make(chan struct{}),
-		disruptor: structs.NewDisruptor[*LogEntry](),
+		done:   make(chan struct{}),
+		buffer: structs.NewDisruptor[*LogEntry](),
 		fallback: structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
-			BatchSize:   fallbackBatchSize,
-			StopTimeout: stopTimeout,
+			BatchSize:   config.FallbackBatchSize,
+			StopTimeout: config.StopTimeout,
 		}),
 		forwardings: []Logger{},
 		streamPool: sync.Pool{
@@ -94,7 +101,22 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	return logger, nil
 }
 
-func (l *FileLogger) Init() {
+func (l *FileLogger) Init() error {
+	if l.isInit {
+		return errors.New("logger already initialized")
+	}
+
+	info, err := os.Stat(path.Dir(l.config.Path))
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return errors.New("file at Path isn't directory")
+	}
+	if err := os.MkdirAll(l.config.Path, l.config.FilePerm); err != nil {
+		return err
+	}
+
 	fileName := fmt.Sprintf(
 		"%s:%s[%s].log",
 		l.config.ApplicationName, l.config.AppInstance, time.Now().Format(time.RFC3339),
@@ -106,7 +128,7 @@ func (l *FileLogger) Init() {
 		l.config.FilePerm,
 	)
 	if err != nil {
-		fileLog.Fatal("Failed to initialize log module (can't open/create log file)", err.Error(), nil)
+		return err
 	}
 
 	logger := log.New(f, "", log.LstdFlags|log.Lmicroseconds)
@@ -115,13 +137,14 @@ func (l *FileLogger) Init() {
 	l.logFile = f
 	l.taskProducer = newTaskProducer(l)
 	l.isInit = true
+
+	return nil
 }
 
 func (l *FileLogger) Start() error {
 	if !l.isInit {
 		return errors.New("logger isn't initialized")
 	}
-
 	if l.isRunning.Load() {
 		return errors.New("logger already started")
 	}
@@ -129,39 +152,48 @@ func (l *FileLogger) Start() error {
 	// canceled WorkerPool can't be started
 	if l.fallback.IsCanceled() {
 		l.fallback = structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
-			BatchSize:   fallbackBatchSize,
-			StopTimeout: stopTimeout,
+			BatchSize:   l.config.FallbackBatchSize,
+			StopTimeout: l.config.StopTimeout,
 		})
 	}
 
 	l.isRunning.Store(true)
 
-	go l.disruptor.Consume(l.handler)
-	go l.fallback.Start(fallbackWorkers)
+	go l.buffer.Consume(l.handler)
+	go l.fallback.Start(l.config.FallbackWorkers)
 
 	return nil
 }
 
-func (l *FileLogger) Stop() error {
+// If strict is true, then this method will ensure that all operations required for gracefull
+// shutdown will succeed or it will return an error.
+// Some operations are non-essential for shutdown, but their failure more likely will cause
+// data loss or corruption. So better to always set it to true.
+//
+// e.g. if there are operation timeout during processing of remain logs in inner buffer or if
+// commit of remain logs into a file from app memory will fail.
+func (l *FileLogger) Stop(strict bool) error {
 	if !l.isRunning.Load() {
 		return errors.New("logger isn't started, hence can't be stopped")
 	}
 
 	l.isRunning.Store(false)
 
-	l.disruptor.Close()
+	l.buffer.Close()
 
-	disruptorDone := false
-	timeout := time.After(stopTimeout)
+	bufferProcessed := false
+	timeout := time.After(l.config.StopTimeout)
 
-	for !disruptorDone {
+	for !bufferProcessed {
 		select {
 		case <-timeout:
-			fileLog.Error("disruptor processing timeout during shutdown", "", nil)
-			disruptorDone = true
+			if strict {
+				return errors.New("buffer processing timeout")
+			}
+			bufferProcessed = true
 		default:
-			if l.disruptor.IsEmpty() {
-				disruptorDone = true
+			if l.buffer.IsEmpty() {
+				bufferProcessed = true
 			} else {
 				time.Sleep(time.Millisecond * 10)
 			}
@@ -173,8 +205,8 @@ func (l *FileLogger) Stop() error {
 	}
 
 	// Flush any remaining data in the file buffer
-	if err := l.logger.Writer().(*os.File).Sync(); err != nil {
-		fileLog.Error("failed to sync log file during shutdown", err.Error(), nil)
+	if err := l.logger.Writer().(*os.File).Sync(); err != nil && strict {
+		return errors.New("failed to sync log file: " + err.Error())
 	}
 
 	if err := l.logFile.Close(); err != nil {
@@ -195,7 +227,9 @@ func (l *FileLogger) handler(entry *LogEntry) {
 
 	stream.WriteVal(entry)
 	if stream.Error != nil {
-		fileLog.Error("failed to write log", stream.Error.Error(), nil)
+		// TODO:
+		// Need to somehow handle failed logs commits, cuz currently they are just loss.
+		// (Push to fallback? Retry queue/buffer?)
 		return
 	}
 
@@ -204,13 +238,14 @@ func (l *FileLogger) handler(entry *LogEntry) {
 		stream.WriteRaw("\n")
 	}
 
-	// NOTE: log.Logger use mutex and atomic operations under the hood,
-	//       so it's thread safe by default
+	// NOTE:
+	// Logger from built-in "log" package uses mutexes and atomic operations
+	// under the hood, so it's already thread safe.
 	l.logger.Writer().Write(stream.Buffer())
 }
 
 func (l *FileLogger) log(entry *LogEntry) {
-	if ok := l.disruptor.Publish(entry); ok {
+	if ok := l.buffer.Publish(entry); ok {
 		return
 	}
 	l.fallback.Push(l.taskProducer(entry))
@@ -228,7 +263,7 @@ func (l *FileLogger) Log(entry *LogEntry) {
 	}
 }
 
-func (l *FileLogger) NewForwarding(logger Logger) error {
+func (l *FileLogger) AddForwarding(logger Logger) error {
 	if logger == nil {
 		return errors.New("received nil instead of logger")
 	}
