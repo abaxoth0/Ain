@@ -5,27 +5,27 @@ import (
 	"os"
 )
 
-type stderrLogger struct {
+type StdErrLogger struct {
 	logger *log.Logger
 }
 
-func newStderrLogger() *stderrLogger {
-	return &stderrLogger{
+func NewStdErrLogger(prefix string) *StdErrLogger {
+	return &StdErrLogger{
 		// log package sends logs to stderr by default
 		// but we want to add prefix to logs and ability to adjust the flags
-		logger: log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime),
+		logger: log.New(os.Stderr, prefix, log.Ldate|log.Ltime),
 	}
 }
 
-func (l *stderrLogger) log(entry *LogEntry) {
-	msg := "[" + entry.Source + ": \033[" + entry.rawLevel.getColour() + "m" + entry.Level + "\033[0m] " + entry.Message
+func (l *StdErrLogger) log(entry *LogEntry) {
+	msg := "[" + entry.Source + ": \033[" + entry.rawLevel.getColor() + "m" + entry.Level + "\033[0m] " + entry.Message
 	if entry.rawLevel >= ErrorLogLevel {
 		msg += ": " + entry.Error
 	}
 	l.logger.Println(msg + " " + entry.Meta.String())
 }
 
-func (l *stderrLogger) Log(entry *LogEntry) {
+func (l *StdErrLogger) Log(entry *LogEntry) {
 	if ok := preprocess(entry, nil, nil); !ok {
 		return
 	}

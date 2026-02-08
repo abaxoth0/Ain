@@ -76,11 +76,6 @@ pool.Push(&MyTask{data: "test"})
 
 Multi-level logging with support for forwarding, configuration, and different output targets.
 
-```go
-logger.NewLoggerEntry(logger.InfoLogLevel, "Hello", "optional error")
-logger.Stdout.Log(entry) // Built-in stdout logger
-```
-
 Features:
 - Multiple log levels (Trace, Debug, Info, Warn, Error, Fatal, Panic)
 - Forwarding capabilities to chain loggers
