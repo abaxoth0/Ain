@@ -9,14 +9,12 @@ import (
 	"path"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/abaxoth0/Ain/structs"
 	jsoniter "github.com/json-iterator/go"
 )
-
-// Used for this package logs (mostly for errors).
-var fileLog = NewSource("LOGGER", Stderr)
 
 const (
 	DefaultFallbackBatchSize = 500
@@ -44,7 +42,7 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 		c.FilePerm = FileLoggerDefaultFilePerm
 	}
 	if c.LoggerConfig == nil {
-		c.LoggerConfig = DefaultConfig
+		c.LoggerConfig = defaultLoggerConfig
 	}
 	if c.FallbackWorkers <= 0 {
 		c.FallbackWorkers = DefaultFallbackWorkers
@@ -65,7 +63,7 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 type FileLogger struct {
 	config       *FileLoggerConfig
 	isInit       bool
-	isRunning    bool
+	isRunning    atomic.Bool
 	done         chan struct{}
 	buffer       *structs.Disruptor[*LogEntry]
 	fallback     *structs.WorkerPool
@@ -147,7 +145,7 @@ func (l *FileLogger) Start() error {
 	if !l.isInit {
 		return errors.New("logger isn't initialized")
 	}
-	if l.isRunning {
+	if l.isRunning.Load() {
 		return errors.New("logger already started")
 	}
 
@@ -159,7 +157,7 @@ func (l *FileLogger) Start() error {
 		})
 	}
 
-	l.isRunning = true
+	l.isRunning.Store(true)
 
 	go l.buffer.Consume(l.handler)
 	go l.fallback.Start(l.config.FallbackWorkers)
@@ -167,12 +165,19 @@ func (l *FileLogger) Start() error {
 	return nil
 }
 
-func (l *FileLogger) Stop() error {
-	if !l.isRunning {
+// If strict is true, then this method will ensure that all operations required for gracefull
+// shutdown will succeed or it will return an error.
+// Some operations are non-essential for shutdown, but their failure more likely will cause
+// data loss or corruption. So better to always set it to true.
+//
+// e.g. if there are operation timeout during processing of remain logs in inner buffer or if
+// commit of remain logs into a file from app memory will fail.
+func (l *FileLogger) Stop(strict bool) error {
+	if !l.isRunning.Load() {
 		return errors.New("logger isn't started, hence can't be stopped")
 	}
 
-	l.isRunning = false
+	l.isRunning.Store(false)
 
 	l.buffer.Close()
 
@@ -182,7 +187,9 @@ func (l *FileLogger) Stop() error {
 	for !bufferProcessed {
 		select {
 		case <-timeout:
-			fileLog.Error("buffer processing timeout during shutdown", "", nil)
+			if strict {
+				return errors.New("buffer processing timeout")
+			}
 			bufferProcessed = true
 		default:
 			if l.buffer.IsEmpty() {
@@ -198,8 +205,8 @@ func (l *FileLogger) Stop() error {
 	}
 
 	// Flush any remaining data in the file buffer
-	if err := l.logger.Writer().(*os.File).Sync(); err != nil {
-		fileLog.Error("failed to sync log file during shutdown", err.Error(), nil)
+	if err := l.logger.Writer().(*os.File).Sync(); err != nil && strict {
+		return errors.New("failed to sync log file: " + err.Error())
 	}
 
 	if err := l.logFile.Close(); err != nil {
@@ -220,7 +227,9 @@ func (l *FileLogger) handler(entry *LogEntry) {
 
 	stream.WriteVal(entry)
 	if stream.Error != nil {
-		fileLog.Error("failed to write log", stream.Error.Error(), nil)
+		// TODO:
+		// Need to somehow handle failed logs commits, cuz currently they are just loss.
+		// (Push to fallback? Retry queue/buffer?)
 		return
 	}
 
@@ -254,7 +263,7 @@ func (l *FileLogger) Log(entry *LogEntry) {
 	}
 }
 
-func (l *FileLogger) NewForwarding(logger Logger) error {
+func (l *FileLogger) AddForwarding(logger Logger) error {
 	if logger == nil {
 		return errors.New("received nil instead of logger")
 	}

@@ -37,7 +37,7 @@ func (s logLevel) String() string {
 }
 
 // Returns colour code for SGR sequence (ANSI X3.64)
-func (level logLevel) getColour() string {
+func (level logLevel) getColor() string {
 	switch level {
 	case TraceLogLevel:
 		return "34" // blue
@@ -76,7 +76,7 @@ type LoggerConfig struct {
 	AppInstance     string // Instance identifier of the application
 }
 
-var DefaultConfig = &LoggerConfig{
+var defaultLoggerConfig = &LoggerConfig{
 	ApplicationName: "undefined",
 	AppInstance:     "undefined",
 }
@@ -84,7 +84,7 @@ var DefaultConfig = &LoggerConfig{
 // Creates a new log entry. Timestamp is time.Now().
 // If level is not error, fatal or panic, then Error will be empty, even if err specified.
 func NewLogEntry(level logLevel, src string, msg string, err string, meta structs.Meta) LogEntry {
-	return NewLogEntryWithConfig(level, src, msg, err, meta, DefaultConfig)
+	return NewLogEntryWithConfig(level, src, msg, err, meta, defaultLoggerConfig)
 }
 
 // Will use DefaultConfig if config is nil
@@ -97,7 +97,7 @@ func NewLogEntryWithConfig(
 	config *LoggerConfig,
 ) LogEntry {
 	if config == nil {
-		config = DefaultConfig
+		config = defaultLoggerConfig
 	}
 
 	e := LogEntry{
