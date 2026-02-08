@@ -778,7 +778,7 @@ func TestFileLoggerStart(t *testing.T) {
 		}()
 
 		time.Sleep(100 * time.Millisecond)
-		if !logger.isRunning.Load() {
+		if !logger.isRunning {
 			t.Error("Expected logger to be running")
 		}
 

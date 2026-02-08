@@ -9,7 +9,6 @@ import (
 	"path"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/abaxoth0/Ain/structs"
@@ -29,13 +28,13 @@ const (
 
 type FileLoggerConfig struct {
 	// Path to the directory where log files will be stored
-	Path 			  string
+	Path string
 	// File permissions for log files
-	FilePerm 		  os.FileMode //Default: 0644
+	FilePerm os.FileMode //Default: 0644
 	// Amount of goroutines in fallback WorkerPool (which is used only when main ring buffer is overflowed).
-	FallbackWorkers   int // Default: 5
-	FallbackBatchSize int // Default: 500
-	StopTimeout		  time.Duration // Default: 10 sec; To disable set to < 0
+	FallbackWorkers   int           // Default: 5
+	FallbackBatchSize int           // Default: 500
+	StopTimeout       time.Duration // Default: 10 sec; To disable set to < 0
 
 	*LoggerConfig
 }
@@ -64,19 +63,18 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 
 // Implements concurrent file-based logging with forwarding capabilities.
 type FileLogger struct {
+	config       *FileLoggerConfig
 	isInit       bool
+	isRunning    bool
 	done         chan struct{}
-	isRunning    atomic.Bool
-	disruptor    *structs.Disruptor[*LogEntry]
+	buffer       *structs.Disruptor[*LogEntry]
 	fallback     *structs.WorkerPool
 	logger       *log.Logger
 	logFile      *os.File
 	forwardings  []Logger
 	taskProducer func(entry *LogEntry) *logTask
 	streamPool   sync.Pool
-	config       *FileLoggerConfig
 }
-
 
 func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	if config == nil {
@@ -86,8 +84,8 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	config.fillEmptySettings()
 
 	logger := &FileLogger{
-		done:      make(chan struct{}),
-		disruptor: structs.NewDisruptor[*LogEntry](),
+		done:   make(chan struct{}),
+		buffer: structs.NewDisruptor[*LogEntry](),
 		fallback: structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
 			BatchSize:   config.FallbackBatchSize,
 			StopTimeout: config.StopTimeout,
@@ -106,6 +104,10 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 }
 
 func (l *FileLogger) Init() error {
+	if l.isInit {
+		return errors.New("logger already initialized")
+	}
+
 	info, err := os.Stat(path.Dir(l.config.Path))
 	if err != nil {
 		return err
@@ -145,8 +147,7 @@ func (l *FileLogger) Start() error {
 	if !l.isInit {
 		return errors.New("logger isn't initialized")
 	}
-
-	if l.isRunning.Load() {
+	if l.isRunning {
 		return errors.New("logger already started")
 	}
 
@@ -158,34 +159,34 @@ func (l *FileLogger) Start() error {
 		})
 	}
 
-	l.isRunning.Store(true)
+	l.isRunning = true
 
-	go l.disruptor.Consume(l.handler)
+	go l.buffer.Consume(l.handler)
 	go l.fallback.Start(l.config.FallbackWorkers)
 
 	return nil
 }
 
 func (l *FileLogger) Stop() error {
-	if !l.isRunning.Load() {
+	if !l.isRunning {
 		return errors.New("logger isn't started, hence can't be stopped")
 	}
 
-	l.isRunning.Store(false)
+	l.isRunning = false
 
-	l.disruptor.Close()
+	l.buffer.Close()
 
-	disruptorDone := false
+	bufferProcessed := false
 	timeout := time.After(l.config.StopTimeout)
 
-	for !disruptorDone {
+	for !bufferProcessed {
 		select {
 		case <-timeout:
-			fileLog.Error("disruptor processing timeout during shutdown", "", nil)
-			disruptorDone = true
+			fileLog.Error("buffer processing timeout during shutdown", "", nil)
+			bufferProcessed = true
 		default:
-			if l.disruptor.IsEmpty() {
-				disruptorDone = true
+			if l.buffer.IsEmpty() {
+				bufferProcessed = true
 			} else {
 				time.Sleep(time.Millisecond * 10)
 			}
@@ -228,13 +229,14 @@ func (l *FileLogger) handler(entry *LogEntry) {
 		stream.WriteRaw("\n")
 	}
 
-	// NOTE: log.Logger use mutex and atomic operations under the hood,
-	//       so it's thread safe by default
+	// NOTE:
+	// Logger from built-in "log" package uses mutexes and atomic operations
+	// under the hood, so it's already thread safe.
 	l.logger.Writer().Write(stream.Buffer())
 }
 
 func (l *FileLogger) log(entry *LogEntry) {
-	if ok := l.disruptor.Publish(entry); ok {
+	if ok := l.buffer.Publish(entry); ok {
 		return
 	}
 	l.fallback.Push(l.taskProducer(entry))
