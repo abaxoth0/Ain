@@ -72,8 +72,6 @@ func (s *SyncStack[T, S]) Size() int64 {
 }
 
 func (s *SyncStack[T, S]) IsEmpty() bool {
-	s.mut.Lock()
-	defer s.mut.Unlock()
 	return s.Size() == 0
 }
 
