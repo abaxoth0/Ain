@@ -60,6 +60,19 @@ queue.Push("item2")
 item, ok := queue.Pop()
 ```
 
+#### Stack
+
+Classic LIFO stack in several implementations.
+```go
+stack := structs.NewStaticStack[string](10)
+
+stack.Push("example 1")
+stack.Push("example 2")
+stack.Pop() // "example 2", true
+stack.Pop() // "example 1", true
+stack.Pop() // "", false
+```
+
 #### WorkerPool
 Concurrent task processing with configurable worker count and graceful shutdown.
 
