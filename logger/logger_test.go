@@ -699,6 +699,125 @@ func TestHandleCritical(t *testing.T) {
 	})
 }
 
+type mockSerializer struct {
+	resetCalled bool
+	writeCalled bool
+	data        []byte
+}
+
+func (s *mockSerializer) Reset() {
+	s.resetCalled = true
+	s.data = s.data[:0]
+}
+
+func (s *mockSerializer) WriteVal(v any) error {
+	s.writeCalled = true
+	s.data = append(s.data, `{"test":"data"}`...)
+	return nil
+}
+
+func (s *mockSerializer) Buffer() []byte {
+	return s.data
+}
+
+func TestFileLoggerSerializerDI(t *testing.T) {
+	t.Run("custom serializer producer is used", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		producerCalled := false
+		logger, err := NewFileLogger(&FileLoggerConfig{
+			Path: tmpDir,
+			SerializerProducer: func() Serializer {
+				producerCalled = true
+				return &mockSerializer{}
+			},
+		})
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+		if err := logger.Start(); err != nil {
+			t.Fatalf("Expected no error starting logger, got %v", err)
+		}
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		logger.Log(&entry)
+
+		time.Sleep(100 * time.Millisecond)
+		if err := logger.Stop(true); err != nil {
+			t.Errorf("Failed to stop logger: %v\n", err)
+		}
+
+		if !producerCalled {
+			t.Error("Expected serializer producer to be called")
+		}
+	})
+
+	t.Run("default serializer when producer is nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		logger, err := NewFileLogger(&FileLoggerConfig{
+			Path: tmpDir,
+		})
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if logger == nil {
+			t.Fatal("Expected logger to be non-nil with nil producer")
+		}
+
+		logger.Init()
+		if err := logger.Start(); err != nil {
+			t.Fatalf("Expected no error starting logger, got %v", err)
+		}
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		logger.Log(&entry)
+
+		time.Sleep(100 * time.Millisecond)
+		if err := logger.Stop(true); err != nil {
+			t.Errorf("Failed to stop logger: %v\n", err)
+		}
+	})
+
+	t.Run("serializer receives reset and write calls", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		serializer := &mockSerializer{}
+		logger, err := NewFileLogger(&FileLoggerConfig{
+			Path: tmpDir,
+			SerializerProducer: func() Serializer {
+				return serializer
+			},
+		})
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		logger.Init()
+		if err := logger.Start(); err != nil {
+			t.Fatalf("Expected no error starting logger, got %v", err)
+		}
+
+		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
+		logger.Log(&entry)
+
+		time.Sleep(100 * time.Millisecond)
+		if err := logger.Stop(true); err != nil {
+			t.Errorf("Failed to stop logger: %v\n", err)
+		}
+
+		if !serializer.resetCalled {
+			t.Error("Expected serializer Reset() to be called")
+		}
+		if !serializer.writeCalled {
+			t.Error("Expected serializer WriteVal() to be called")
+		}
+	})
+}
+
 func TestConcurrentLogging(t *testing.T) {
 	t.Run("concurrent source logging", func(t *testing.T) {
 		mock := &mockLogger{}

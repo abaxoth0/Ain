@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/abaxoth0/Ain/structs"
-	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -30,9 +29,10 @@ type FileLoggerConfig struct {
 	// File permissions for log files
 	FilePerm os.FileMode //Default: 0644
 	// Amount of goroutines in fallback WorkerPool (which is used only when main ring buffer is overflowed).
-	FallbackWorkers   int           // Default: 5
-	FallbackBatchSize int           // Default: 500
-	StopTimeout       time.Duration // Default: 10 sec; To disable set to < 0
+	FallbackWorkers    int               // Default: 5
+	FallbackBatchSize  int               // Default: 500
+	StopTimeout        time.Duration     // Default: 10 sec; To disable set to < 0
+	SerializerProducer func() Serializer // Default: func () Serializer { return NewJSONSerializer() }
 
 	*LoggerConfig
 }
@@ -56,6 +56,9 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 	// To disable timeout just set it to maximum possible value for time.Duration
 	if c.StopTimeout < 0 {
 		c.StopTimeout = time.Duration((1 << 63) - 1)
+	}
+	if c.SerializerProducer == nil {
+		c.SerializerProducer = func() Serializer { return NewJSONSerializer() }
 	}
 }
 
@@ -91,7 +94,7 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 		forwardings: []Logger{},
 		streamPool: sync.Pool{
 			New: func() any {
-				return jsoniter.NewStream(jsoniter.ConfigFastest, nil, 1024)
+				return config.SerializerProducer()
 			},
 		},
 		config: config,
@@ -219,29 +222,22 @@ func (l *FileLogger) Stop(strict bool) error {
 }
 
 func (l *FileLogger) handler(entry *LogEntry) {
-	stream := l.streamPool.Get().(*jsoniter.Stream)
+	stream := l.streamPool.Get().(Serializer)
 	defer l.streamPool.Put(stream)
 
-	stream.Reset(nil)
-	stream.Error = nil
+	stream.Reset()
 
-	stream.WriteVal(entry)
-	if stream.Error != nil {
+	if err := stream.WriteVal(entry); err != nil {
 		// TODO:
 		// Need to somehow handle failed logs commits, cuz currently they are just loss.
 		// (Push to fallback? Retry queue/buffer?)
 		return
 	}
 
-	if stream.Buffered() > 0 {
-		// Add newline to ensure each log entry is on its own line
-		stream.WriteRaw("\n")
-	}
-
 	// NOTE:
 	// Logger from built-in "log" package uses mutexes and atomic operations
 	// under the hood, so it's already thread safe.
-	l.logger.Writer().Write(stream.Buffer())
+	l.logger.Writer().Write(append(stream.Buffer(), '\n'))
 }
 
 func (l *FileLogger) log(entry *LogEntry) {
