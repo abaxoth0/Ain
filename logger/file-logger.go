@@ -32,7 +32,7 @@ type FileLoggerConfig struct {
 	FallbackWorkers    int               // Default: 5
 	FallbackBatchSize  int               // Default: 500
 	StopTimeout        time.Duration     // Default: 10 sec; To disable set to < 0
-	SerializerProducer func() Serializer // nil = default
+	SerializerProducer func() Serializer // Default: func () Serializer { return NewJSONSerializer() }
 
 	*LoggerConfig
 }
@@ -227,7 +227,7 @@ func (l *FileLogger) handler(entry *LogEntry) {
 
 	stream.Reset()
 
-	if err :=stream.WriteVal(entry); err != nil {
+	if err := stream.WriteVal(entry); err != nil {
 		// TODO:
 		// Need to somehow handle failed logs commits, cuz currently they are just loss.
 		// (Push to fallback? Retry queue/buffer?)

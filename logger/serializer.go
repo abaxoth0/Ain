@@ -5,12 +5,21 @@ import (
 	"encoding/json"
 )
 
+// Interface for serializing log entries.
+// Implementations must be safe for concurrent use from multiple goroutines
+// since a single instance may be retrieved from a pool and used concurrently.
 type Serializer interface {
+	// Clears the serializer's internal buffer, preparing it for a new entry.
 	Reset()
+	// Serializes the given value to the internal buffer.
 	WriteVal(v any) error
+	// Returns the serialized data.
 	Buffer() []byte
 }
 
+// Default Serializer implementation using encoding/json.
+// It uses a bytes.Buffer internally which is reset and reused via sync.Pool
+// to reduce allocations.
 type JSONSerializer struct {
 	buffer  *bytes.Buffer
 	encoder *json.Encoder
