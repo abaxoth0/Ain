@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Added
+
+- Stack - classic LIFO stack in several implementations:
+    - StaticStack - stack with fixed capacity
+    - DynamicStack - stack with unlimited capacity that grows dynamicaly
+    - SyncStack - provides thread-safe wrappers for the methods of Stack interface
+
 ### Changed
 
 - Logger:
