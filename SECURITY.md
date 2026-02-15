@@ -48,13 +48,7 @@ This library contains high-performance concurrent data structures. Be aware of:
 
 ### Dependencies
 
-Current dependencies are minimal and regularly updated:
-
-```
-github.com/json-iterator/go v1.1.12
-github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421
-github.com/modern-go/reflect2 v1.0.2
-```
+There are no third-party dependencies for this library.
 
 ### No User Data Collection
 

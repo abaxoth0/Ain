@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - DynamicStack - stack with unlimited capacity that grows dynamicaly
     - SyncStack - provides thread-safe wrappers for the methods of Stack interface
 
+### Changed
+
+- Logger:
+    - Add DI for FileLogger (FileLoggerConfig.SerializerProducer property): Now FileLogger relies on Serializer interface to encode logs.
+    This change removes hard-lock on JSON-lines log format.
+
+### Removed
+
+- All third-party dependencies
+
 ## [1.1.0] - 2026-02-08
 
 ### Added
