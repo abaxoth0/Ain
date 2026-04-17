@@ -26,6 +26,7 @@ const (
 type FileLoggerConfig struct {
 	// Path to the directory where log files will be stored
 	Path string
+	TimeLayout string
 	// File permissions for log files
 	FilePerm os.FileMode //Default: 0644
 	// Amount of goroutines in fallback WorkerPool (which is used only when main ring buffer is overflowed).
@@ -38,6 +39,9 @@ type FileLoggerConfig struct {
 }
 
 func (c *FileLoggerConfig) fillEmptySettings() {
+	if c.TimeLayout == "" {
+		c.TimeLayout = "2006-01-02_15-04-05"
+	}
 	if c.FilePerm == 0 {
 		c.FilePerm = FileLoggerDefaultFilePerm
 	}
@@ -121,8 +125,8 @@ func (l *FileLogger) Init() error {
 	}
 
 	fileName := fmt.Sprintf(
-		"%s:%s[%s].log",
-		l.config.ApplicationName, l.config.AppInstance, time.Now().Format(time.RFC3339),
+		"%s_%s[%s].log",
+		l.config.ApplicationName, l.config.AppInstance, time.Now().Format(l.config.TimeLayout),
 	)
 
 	f, err := os.OpenFile(
