@@ -8,7 +8,7 @@ import (
 
 func TestNewDisruptor(t *testing.T) {
 	t.Run("create disruptor", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 		if d == nil {
 			t.Fatal("Disruptor should not be nil")
 		}
@@ -27,14 +27,14 @@ func TestNewDisruptor(t *testing.T) {
 }
 func TestNewDisruptorWithSize(t *testing.T) {
 	t.Run("below min size", func(t *testing.T) {
-		if _, err := NewDisruptorWithSize[int](100); err == nil {
+		if _, err := NewDisruptorWithSize[int](100, nil); err == nil {
 			t.Error("Disruptor created with invalid size: 100")
 		}
-		if _, err := NewDisruptorWithSize[int](-20); err == nil {
+		if _, err := NewDisruptorWithSize[int](-20, nil); err == nil {
 			t.Error("Disruptor created with invalid size: -20")
 		}
 		size := (1 << 6) + 1
-		if _, err := NewDisruptorWithSize[int](size); err == nil {
+		if _, err := NewDisruptorWithSize[int](size, nil); err == nil {
 			t.Errorf("Disruptor created with size being not a power of 2: %d", size)
 		}
 	})
@@ -42,7 +42,7 @@ func TestNewDisruptorWithSize(t *testing.T) {
 
 func TestDisruptorPublish(t *testing.T) {
 	t.Run("publish single entry", func(t *testing.T) {
-		d := NewDisruptor[string]()
+		d := NewDisruptor[string](nil)
 
 		success := d.Publish("test")
 		if !success {
@@ -55,7 +55,7 @@ func TestDisruptorPublish(t *testing.T) {
 	})
 
 	t.Run("publish multiple entries", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		const numEntries = 100
 		for i := range numEntries {
@@ -72,7 +72,7 @@ func TestDisruptorPublish(t *testing.T) {
 	})
 
 	t.Run("publish to closed disruptor", func(t *testing.T) {
-		d := NewDisruptor[string]()
+		d := NewDisruptor[string](nil)
 		d.Close()
 
 		success := d.Publish("test")
@@ -82,7 +82,7 @@ func TestDisruptorPublish(t *testing.T) {
 	})
 
 	t.Run("buffer overflow", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		// Don't start a consumer - just fill the buffer
 		// Fill buffer to capacity (DefaultBufferSize-1 entries: 0 to DefaultBufferSize-2)
@@ -105,7 +105,7 @@ func TestDisruptorPublish(t *testing.T) {
 
 func TestDisruptorConsume(t *testing.T) {
 	t.Run("consume single entry", func(t *testing.T) {
-		d := NewDisruptor[string]()
+		d := NewDisruptor[string](nil)
 
 		success := d.Publish("test")
 		if !success {
@@ -141,7 +141,7 @@ func TestDisruptorConsume(t *testing.T) {
 	})
 
 	t.Run("consume multiple entries", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		const numEntries = 50
 		expected := make([]int, numEntries)
@@ -199,7 +199,7 @@ func TestDisruptorConsume(t *testing.T) {
 	})
 
 	t.Run("consume from closed disruptor", func(t *testing.T) {
-		d := NewDisruptor[string]()
+		d := NewDisruptor[string](nil)
 		d.Close()
 
 		err := d.Consume(func(entry string) {
@@ -212,7 +212,7 @@ func TestDisruptorConsume(t *testing.T) {
 	})
 
 	t.Run("consume with no entries", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		var consumed []int
 		var consumedMu sync.Mutex
@@ -253,7 +253,7 @@ func TestDisruptorConsume(t *testing.T) {
 
 func TestDisruptorClose(t *testing.T) {
 	t.Run("close empty disruptor", func(t *testing.T) {
-		d := NewDisruptor[string]()
+		d := NewDisruptor[string](nil)
 
 		d.Close()
 
@@ -263,7 +263,7 @@ func TestDisruptorClose(t *testing.T) {
 	})
 
 	t.Run("close disruptor with pending entries", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		for i := range 10 {
 			success := d.Publish(i)
@@ -306,7 +306,7 @@ func TestDisruptorClose(t *testing.T) {
 
 func TestDisruptorConcurrency(t *testing.T) {
 	t.Run("concurrent publish and consume", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		const numPublishers = 5
 		const numEntriesPerPublisher = 100
@@ -362,7 +362,7 @@ func TestDisruptorConcurrency(t *testing.T) {
 	})
 
 	t.Run("concurrent publishes", func(t *testing.T) {
-		d := NewDisruptor[string]()
+		d := NewDisruptor[string](nil)
 
 		const numGoroutines = 10
 		const numEntriesPerGoroutine = 50
@@ -414,7 +414,7 @@ func TestDisruptorBufferSize(t *testing.T) {
 
 func TestDisruptorStress(t *testing.T) {
 	t.Run("stress test", func(t *testing.T) {
-		d := NewDisruptor[int]()
+		d := NewDisruptor[int](nil)
 
 		const numEntries = 1000 // Reduced for faster test
 		var consumed []int

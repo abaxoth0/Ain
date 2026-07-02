@@ -90,7 +90,7 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 
 	logger := &FileLogger{
 		done:   make(chan struct{}),
-		buffer: structs.NewDisruptor[*LogEntry](),
+		buffer: structs.NewDisruptor[*LogEntry](nil),
 		fallback: structs.NewWorkerPool(context.Background(), &structs.WorkerPoolOptions{
 			BatchSize:   config.FallbackBatchSize,
 			StopTimeout: config.StopTimeout,

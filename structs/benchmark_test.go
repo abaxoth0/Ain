@@ -23,7 +23,7 @@ func BenchmarkDisruptor_SingleOperation(b *testing.B) {
 	// Simple single operation test without consumer
 	// Just test raw publish operation speed
 	b.StopTimer()
-	d, err := NewDisruptorWithSize[TestData](1 << 20) // 1M buffer
+	d, err := NewDisruptorWithSize[TestData](1 << 20, nil) // 1M buffer
 	if err != nil {
 		b.Fatal("Failed to create disruptor:", err)
 	}
@@ -73,7 +73,7 @@ func BenchmarkChannel_SingleOperation(b *testing.B) {
 func BenchmarkDisruptor_Throughput(b *testing.B) {
 	// Run once for reliability in benchmarks
 	b.StopTimer()
-	d := NewDisruptor[TestData]()
+	d := NewDisruptor[TestData](nil)
 	var wg sync.WaitGroup
 	var processed int64
 
