@@ -13,8 +13,6 @@ const (
 	MinBufferSize = 1 << 6
 )
 
-var yieldWaiter = yieldSeqWait{}
-
 // Represents an atomic sequence number with padding to prevent false sharing.
 type sequence struct {
 	Value atomic.Int64
@@ -29,7 +27,9 @@ type seqWaiter interface {
 }
 
 // Implements a yielding wait strategy that sleeps briefly between checks.
-type yieldSeqWait struct{}
+type yieldSeqWait struct{
+	waitFor time.Duration
+}
 
 // Waits until either sequence is greater than or equal to cursor, or done is closed.
 func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{}) {
@@ -38,7 +38,7 @@ func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 		case <-done:
 			return
 		default:
-			time.Sleep(10 * time.Microsecond)
+			time.Sleep(w.waitFor)
 		}
 	}
 }
@@ -55,9 +55,23 @@ type Disruptor[T any] struct {
 	done       chan struct{}
 }
 
+
+type DisruptorConfig struct {
+	// Determines how often Consumer will wake up and check for updates.
+	IdleCheckInterval time.Duration
+}
+
+const (
+	DisruptorDefaultIdleCheckInterval = 10 * time.Millisecond
+)
+
+var defaultDisruptorConfig = &DisruptorConfig{
+	IdleCheckInterval: DisruptorDefaultIdleCheckInterval,
+}
+
 // creates a new Disruptor with default buffer size (64K)
-func NewDisruptor[T any]() *Disruptor[T] {
-	dis, err := NewDisruptorWithSize[T](DefaultBufferSize)
+func NewDisruptor[T any](conf *DisruptorConfig) *Disruptor[T] {
+	dis, err := NewDisruptorWithSize[T](DefaultBufferSize, conf)
 	if err != nil {
 		panic(err)
 	}
@@ -66,7 +80,7 @@ func NewDisruptor[T any]() *Disruptor[T] {
 
 // Creates a new Disruptor with specified buffer size.
 // Buffer size must be a power of 2 and at least MinBufferSize.
-func NewDisruptorWithSize[T any](size int) (*Disruptor[T], error) {
+func NewDisruptorWithSize[T any](size int, conf *DisruptorConfig) (*Disruptor[T], error) {
 	// Validate size
 	if size < MinBufferSize {
 		return nil, fmt.Errorf("Disruptor buffer size %d is too small (minimum: %d)", size, MinBufferSize)
@@ -75,12 +89,18 @@ func NewDisruptorWithSize[T any](size int) (*Disruptor[T], error) {
 		return nil, fmt.Errorf("Disruptor buffer size %d must be a power of two", size)
 	}
 
+	if conf == nil {
+		conf = defaultDisruptorConfig
+	}
+
 	d := &Disruptor[T]{
+		waiter: yieldSeqWait{
+			waitFor: conf.IdleCheckInterval,
+		},
 		buffer:     make([]T, size),
 		bufferSize: size,
 		bufferMask: int64(size - 1),
 		done:       make(chan struct{}),
-		waiter:     yieldWaiter,
 	}
 	d.writer.Value.Store(-1)
 	d.reader.Value.Store(-1)
