@@ -28,3 +28,12 @@ func MapKeys[K comparable, V any](m map[K]V) []K {
 	}
 	return r
 }
+
+func MapPop[K comparable, V any](m map[K]V, k K) V {
+	r, ok := m[k]
+	if ok {
+		delete(m, k)
+	}
+	return r
+}
+
