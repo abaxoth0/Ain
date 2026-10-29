@@ -67,8 +67,8 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 }
 
 // FileLogger provides asynchronous file logging with forwarding.
-// It inherits Disruptor's concurrent publication limits. Configure forwarding
-// before logging and keep entries immutable while they may be in use.
+// Configure forwarding before logging and keep entries immutable while they
+// may be in use. Serialize lifecycle calls; shutdown has separate limitations.
 type FileLogger struct {
 	config       *FileLoggerConfig
 	isInit       bool

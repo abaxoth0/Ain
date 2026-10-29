@@ -407,7 +407,7 @@ func TestDisruptorBufferSize(t *testing.T) {
 	t.Run("buffer index mask", func(t *testing.T) {
 		// Test that the mask works correctly for wrapping
 		for i := range DefaultBufferSize * 2 {
-			expected := i & (DefaultBufferSize - 1)
+			expected := i % DefaultBufferSize
 			actual := i & (DefaultBufferSize - 1)
 			if actual != expected {
 				t.Errorf("For index %d: expected %d, got %d", i, expected, actual)

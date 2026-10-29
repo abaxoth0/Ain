@@ -2,6 +2,7 @@ package structs
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -43,9 +44,8 @@ func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 	}
 }
 
-// Disruptor is a ring buffer with atomic cursors.
-// Concurrent publication and consumption are not safe: Publish advances the
-// writer cursor before writing the slot. Multiple consumers are not coordinated.
+// Disruptor is a ring buffer supporting concurrent publishers and one consumer.
+// Publishers serialize slot writes before making them visible to the consumer.
 type Disruptor[T any] struct {
 	buffer     []T
 	bufferSize int       // must be power of 2
@@ -55,6 +55,7 @@ type Disruptor[T any] struct {
 	waiter     seqWaiter // Wait strategy for consumers
 	closed     atomic.Bool
 	done       chan struct{}
+	publishMu  sync.Mutex
 }
 
 type DisruptorConfig struct {
@@ -111,9 +112,10 @@ func NewDisruptorWithSize[T any](size int, conf *DisruptorConfig) (*Disruptor[T]
 // Close signals shutdown without waiting for Consume to return.
 // Calling Close more than once panics. The Disruptor cannot be reused.
 func (d *Disruptor[T]) Close() {
-	close(d.done)
-	// Set closed flag immediately if no consumer is running
+	d.publishMu.Lock()
+	defer d.publishMu.Unlock()
 	d.closed.Store(true)
+	close(d.done)
 }
 
 // IsEmpty reports whether the reader and writer cursors are equal.
@@ -124,43 +126,24 @@ func (d *Disruptor[T]) IsEmpty() bool {
 
 // Attempts to add an entry to the disruptor buffer.
 // Returns false if buffer is full or if Disruptor is closed.
-// Publish and Consume disable race instrumentation; passing race tests does not
-// validate concurrent buffer access.
-//
-//go:norace
 func (d *Disruptor[T]) Publish(entry T) bool {
-	for {
-		select {
-		case <-d.done:
-			return false
-		default:
-			writer := d.writer.Value.Load()
-			reader := d.reader.Value.Load()
-			nextWriter := writer + 1
-
-			// Check if buffer is full
-			// NOTE: For buffer sizes ≤ 8, use (nextWriter - reader) > (BufferSize - 1) condition
-			// to avoid off-by-one overwrites. For larger buffers (≥1024) keep current condition.
-			if nextWriter-reader >= int64(d.bufferSize) {
-				return false
-			}
-
-			// CAS claims a distinct sequence, but exposes it before the slot is written.
-			if d.writer.Value.CompareAndSwap(writer, nextWriter) {
-				d.buffer[nextWriter&d.bufferMask] = entry
-				return true
-			}
-			// CAS failed - another publisher claimed this slot, retry.
-		}
+	d.publishMu.Lock()
+	defer d.publishMu.Unlock()
+	if d.closed.Load() {
+		return false
 	}
+	nextWriter := d.writer.Value.Load() + 1
+	if nextWriter-d.reader.Value.Load() >= int64(d.bufferSize) {
+		return false
+	}
+	d.buffer[nextWriter&d.bufferMask] = entry
+	d.writer.Value.Store(nextWriter)
+	return true
 }
 
 // Starts consuming entries from the disruptor using the provided handler.
-// Consume blocks, calls handler synchronously, and attempts to drain on Close.
+// Consume blocks, calls handler synchronously, and drains accepted entries on Close.
 // It returns an error if already closed. Only one consumer may be used.
-// Concurrent publication can expose unwritten slots; see Disruptor.
-//
-//go:norace
 func (d *Disruptor[T]) Consume(handler func(T)) error {
 	if d.closed.Load() {
 		return fmt.Errorf("can't start canceled Disruptor")
@@ -170,16 +153,17 @@ func (d *Disruptor[T]) Consume(handler func(T)) error {
 	closed := false
 
 	for {
-		writer := d.writer.Value.Load()
-
 		select {
 		case <-d.done:
 			closed = true
 		default:
-			if claimed > writer {
-				d.waiter.WaitFor(claimed, &d.writer, d.done)
-				continue
-			}
+		}
+
+		// Read after observing shutdown so the final snapshot includes every publication.
+		writer := d.writer.Value.Load()
+		if !closed && claimed > writer {
+			d.waiter.WaitFor(claimed, &d.writer, d.done)
+			continue
 		}
 
 		for i := claimed; i <= writer; i++ {
@@ -190,7 +174,6 @@ func (d *Disruptor[T]) Consume(handler func(T)) error {
 		claimed = writer + 1
 
 		if closed {
-			d.closed.Store(true)
 			return nil
 		}
 	}

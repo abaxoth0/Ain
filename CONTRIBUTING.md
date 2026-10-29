@@ -62,9 +62,9 @@ suite has normalization, timing, and comparability limitations. The legacy
 `scripts/bench.py` collector writes CSV files in the current working directory;
 it does not perform statistical analysis.
 
-Disruptor's `Publish` and `Consume` use `//go:norace`, so the race detector does
-not instrument their buffer accesses. A passing race run is not proof of safe
-concurrent delivery. Review the lifecycle and concurrency limits in
+Keep Disruptor publication and consumption instrumented by the race detector.
+Run the payload identity and wraparound regressions alongside race checks;
+operation counts alone do not establish correct delivery. Review the contracts in
 [README.md](README.md) when adding concurrent code.
 
 ### Code Quality

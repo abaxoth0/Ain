@@ -40,22 +40,20 @@ Since this is a personal utility library (not a professional-oriented library), 
 
 ### Concurrency and lifecycle limits
 
-Atomic cursors alone do not establish that the Disruptor buffer is safe. In
-`Publish`, the writer cursor advances before the slot is assigned. A consumer
-can therefore read an unwritten slot, including when multiple publishers finish
-out of order. There is no coordination between multiple consumers.
-
-`Publish` and `Consume` are marked `//go:norace`. Their buffer accesses are not
-instrumented, so a passing race-detector run cannot validate these paths. The
-previous claim that warnings were harmless false positives was unsupported.
-Treat race reports as findings to investigate, not warnings to dismiss.
+Disruptor serializes publishers and commits each slot before advancing its
+atomic writer cursor. Close coordinates with publishers, and a running consumer
+drains accepted entries before returning. Only one consumer is supported. Keep
+referenced payloads immutable while they may be in use. Publication and
+consumption have race instrumentation enabled; treat race reports as findings
+to investigate.
 
 Other implementation limits relevant to callers:
 
 - Disruptor `Close` is not idempotent and does not join the consumer.
 - WorkerPool cancellation does not wake idle queue waiters or guarantee that
   queued tasks and drain work have finished. It cannot interrupt a running task.
-- FileLogger inherits the Disruptor and WorkerPool limits. Serialization failures
+- FileLogger consumer startup can race immediate shutdown, and fallback workers
+  inherit the WorkerPool limits. Serialization failures
   discard entries, write errors are ignored, and shutdown does not establish
   durable delivery. Fatal logging exits without waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global

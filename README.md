@@ -28,14 +28,14 @@ are described alongside each example; see also [SECURITY.md](SECURITY.md).
 
 ### `structs`: Disruptor
 
-Disruptor uses a preallocated ring buffer and atomic cursors. Pass `nil` to
+Disruptor uses a preallocated ring buffer, serialized publishers, and atomic
+cursors. It supports multiple concurrent publishers and one consumer. Pass `nil` to
 `NewDisruptor[T](conf)` for the default 65,536-slot buffer and 10 ms idle check
 interval. `NewDisruptorWithSize[T](size, conf)` returns a buffer and an error;
 `size` must be a power of two and at least 64. The fullness check leaves one slot
 unused. A custom `DisruptorConfig` sets `IdleCheckInterval` directly.
 
-This example publishes before consuming to avoid overlapping publication and
-consumption:
+This example publishes an entry and closes the buffer from its consumer:
 
 ```go
 package main
@@ -64,16 +64,12 @@ func main() {
 `Consume` blocks and invokes the handler synchronously. Use only one consumer:
 there is no coordination between multiple `Consume` calls. `Close` signals
 shutdown without waiting, is not idempotent, and prevents subsequent `Consume`
-calls. An already running consumer attempts to drain entries before returning;
-coordinate producers and wait for `Consume` to return yourself.
-
-Concurrent publication and consumption currently have a correctness limitation:
-`Publish` advances the writer cursor **before** assigning the buffer slot, so a
-consumer can observe a slot before its value is written. Multiple publishers can
-also expose unfinished earlier slots. The `//go:norace` directives on `Publish`
-and `Consume` suppress instrumentation. Passing race tests does not establish
-that these accesses are safe. Do not rely on concurrent delivery guarantees
-until this publication ordering is fixed.
+calls. An already running consumer drains all accepted entries before returning;
+wait for `Consume` to return yourself. A publication racing `Close` is either
+committed before shutdown or rejected. Slots become visible only after their
+payloads are written, and are reused only after the handler returns. Keep
+referenced payload data immutable while it may be in use. Race instrumentation
+is enabled for both publication and consumption.
 
 ### `structs`: SyncQueue
 
@@ -220,7 +216,8 @@ configure directory permissions appropriate to your deployment.
 Treat a `FileLogger` as a single-use instance: `Stop` closes its ring buffer and
 file, and `Start` does not recreate them. Stop producers before shutdown and
 serialize lifecycle calls. `Stop(true)` attempts to drain, sync, and close the
-file, but inherits the Disruptor and WorkerPool limitations above. Serialization
+file, but consumer startup and WorkerPool shutdown remain unreliable. An immediate
+Start/log/Stop sequence can time out before the consumer starts. Serialization
 failures discard entries and write errors are ignored; neither `Log` nor a
 successful `Stop` guarantees durable delivery. Overflow uses a worker pool and
 can reorder entries. Configure forwarding before logging; forwarding changes
