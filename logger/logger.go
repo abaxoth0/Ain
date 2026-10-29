@@ -16,12 +16,13 @@ type Logger interface {
 }
 
 // Extends Logger with lifecycle management methods.
+// FileLogger does not implement this interface: its Stop method takes a bool.
 type ConcurrentLogger interface {
 	Logger
 
 	// Begins the logger's background processing.
 	Start() error
-	// Gracefully shuts down the logger and waits for pending operations.
+	// Requests shutdown according to the implementation's lifecycle contract.
 	Stop() error
 }
 

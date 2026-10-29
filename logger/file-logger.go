@@ -66,7 +66,9 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 	}
 }
 
-// Implements concurrent file-based logging with forwarding capabilities.
+// FileLogger provides asynchronous file logging with forwarding.
+// It inherits Disruptor's concurrent publication limits. Configure forwarding
+// before logging and keep entries immutable while they may be in use.
 type FileLogger struct {
 	config       *FileLoggerConfig
 	isInit       bool
@@ -174,13 +176,12 @@ func (l *FileLogger) Start() error {
 	return nil
 }
 
-// If strict is true, then this method will ensure that all operations required for gracefull
-// shutdown will succeed or it will return an error.
-// Some operations are non-essential for shutdown, but their failure more likely will cause
-// data loss or corruption. So better to always set it to true.
-//
-// e.g. if there are operation timeout during processing of remain logs in inner buffer or if
-// commit of remain logs into a file from app memory will fail.
+// Stop attempts to drain the ring, cancel fallback work, sync, and close the file.
+// strict reports ring-drain timeout and sync errors instead of ignoring them.
+// Serialization and write errors are not reported, and fallback cancellation
+// does not guarantee that pending writes finished. Stop does not guarantee durable
+// delivery. Stop producers first and serialize lifecycle calls; do not restart
+// this instance after stopping.
 func (l *FileLogger) Stop(strict bool) error {
 	if !l.isRunning.Load() {
 		return errors.New("logger isn't started, hence can't be stopped")
@@ -240,9 +241,7 @@ func (l *FileLogger) handler(entry *LogEntry) {
 		return
 	}
 
-	// NOTE:
-	// Logger from built-in "log" package uses mutexes and atomic operations
-	// under the hood, so it's already thread safe.
+	// Write directly to the file, bypassing log.Logger formatting.
 	_, _ = l.logger.Writer().Write(append(stream.Buffer(), '\n'))
 }
 

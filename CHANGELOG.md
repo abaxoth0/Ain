@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Streamline benchmark guidance and README links.
+- Correct README constructors and lifecycle examples, document concurrency and shutdown limits, and remove unsupported benchmark claims.
+- Align contributor guidance and security notes with the implementation and repository conventions.
 - Run CI on dev and main, validate workflows, and test Go 1.23 and the current stable version.
 - Update lint and security tooling and resolve existing findings.
 - Gate library releases on CI, fetch release history, and grant release publishing permissions.

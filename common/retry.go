@@ -34,7 +34,7 @@ type RetryConfig struct {
 
 	// Maximum delay between retry attempts.
 	// Prevents excessively long waits during extended outages.
-	// 0 means no maximum backoff limit.
+	// 0 currently clamps the delay to zero.
 	MaxBackoff time.Duration
 
 	// Base delay for exponential backoff calculation.
@@ -46,8 +46,11 @@ type RetryConfig struct {
 // Retry executes a function with configurable retry logic using exponential backoff with jitter.
 // Returns the last error encountered if all attempts fail, or nil if successful.
 //
-// This function is thread-safe and can be called concurrently.
-// The retry logic runs in a separate goroutine to avoid blocking the caller.
+// The initial call runs in the caller; retries run in a goroutine while the caller
+// blocks for the result. Use a separate configuration for concurrent calls, since
+// a zero BackoffScale may be replaced with the default.
+// At the attempt limit, the retry goroutine sends an error but continues running.
+// It can call fn after Retry returns and block forever sending another result.
 //
 // Backoff Algorithm:
 // delay = 2^attempts * BackoffScale + random jitter(0-10ms)

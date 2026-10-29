@@ -1,149 +1,315 @@
 # Ain
 
-A Go library containing reusable utilities and data structures.
-
-## Overview
-
-Ain (formal name of Epsilon Tauri star) is a collection of common Go packages and utilities. This library provides battle-tested, production-ready implementations of commonly needed functionality.
+A Go library containing reusable utilities and data structures. Ain is named after
+Epsilon Tauri.
 
 ## Motivation
 
-This library was created to solve a common problem: fixing the same bugs and implementing the same features across multiple projects. Instead of copying code between repositories, this centralized library ensures that bug fixes and improvements benefit all projects simultaneously, reducing maintenance overhead and improving code quality across the board.
-
-## License
-
-This library is licensed under the MIT License.
-Please see the [LICENSE](LICENSE) file for the full license text.
-
-## Features
-
-- **High-Performance Data Structures**: Lock-free ring buffer (Disruptor), thread-safe queues, worker pools
-- **Logging System**: Flexible, multi-level logging with forwarding capabilities
-- **Error Handling**: Structured error types with HTTP status codes
-- **Retry Mechanism**: Exponential backoff with jitter for resilient operations
-- **Common Utilities**: Reusable helper functions
+Ain collects helpers shared by multiple projects so fixes and improvements can be
+maintained in one place.
 
 ## Installation
+
+Requires Go 1.23.0 or later. The library has no third-party Go dependencies.
 
 ```bash
 go get github.com/abaxoth0/Ain
 ```
 
-## Requirements
-
-- Go 1.23.0 or later
-
 ## Packages
 
-### `structs` - Data Structures
+- **`structs`**: Ring buffer, synchronized FIFO queue, stacks, worker pool, and metadata helpers.
+- **`logger`**: Console and asynchronous file logging, log levels, serializers, and forwarding.
+- **`errs`**: Error types and predefined errors with HTTP status codes.
+- **`common`**: Retry, ternary, and map helpers.
 
-#### Disruptor
-A high-performance, lock-free ring buffer implementation based on the LMAX Disruptor pattern.
+The Go examples below are standalone programs. Lifecycle and concurrency limits
+are described alongside each example; see also [SECURITY.md](SECURITY.md).
+
+### `structs`: Disruptor
+
+Disruptor uses a preallocated ring buffer and atomic cursors. Pass `nil` to
+`NewDisruptor[T](conf)` for the default 65,536-slot buffer and 10 ms idle check
+interval. `NewDisruptorWithSize[T](size, conf)` returns a buffer and an error;
+`size` must be a power of two and at least 64. The fullness check leaves one slot
+unused. A custom `DisruptorConfig` sets `IdleCheckInterval` directly.
+
+This example publishes before consuming to avoid overlapping publication and
+consumption:
 
 ```go
-disruptor := structs.NewDisruptor[string]()
-go disruptor.Consume(func(msg string) {
-    fmt.Println("Received:", msg)
-})
+package main
 
-disruptor.Publish("Hello, World!")
+import (
+    "fmt"
+
+    "github.com/abaxoth0/Ain/structs"
+)
+
+func main() {
+    d := structs.NewDisruptor[string](nil)
+    if !d.Publish("Hello, World!") {
+        panic("buffer full or closed")
+    }
+    if err := d.Consume(func(msg string) {
+        fmt.Println("Received:", msg)
+        d.Close()
+    }); err != nil {
+        panic(err)
+    }
+}
 ```
 
-#### SyncQueue
-Thread-safe FIFO queue with optional size limits and blocking operations.
+`Publish` returns `false` when full or closed; it does not wait for capacity.
+`Consume` blocks and invokes the handler synchronously. Use only one consumer:
+there is no coordination between multiple `Consume` calls. `Close` signals
+shutdown without waiting, is not idempotent, and prevents subsequent `Consume`
+calls. An already running consumer attempts to drain entries before returning;
+coordinate producers and wait for `Consume` to return yourself.
+
+Concurrent publication and consumption currently have a correctness limitation:
+`Publish` advances the writer cursor **before** assigning the buffer slot, so a
+consumer can observe a slot before its value is written. Multiple publishers can
+also expose unfinished earlier slots. The `//go:norace` directives on `Publish`
+and `Consume` suppress instrumentation. Passing race tests does not establish
+that these accesses are safe. Do not rely on concurrent delivery guarantees
+until this publication ordering is fixed.
+
+### `structs`: SyncQueue
+
+`SyncQueue[T]` requires a comparable element type. Individual queue operations
+use a mutex. A size limit of zero or less disables the limit; `Push` returns an
+error immediately when a positive limit is reached. `Pop` returns `false` when
+empty.
 
 ```go
-queue := structs.NewSyncQueue[string](0) // 0 = no size limit
-queue.Push("item1")
-queue.Push("item2")
+package main
 
-item, ok := queue.Pop()
+import (
+    "fmt"
+
+    "github.com/abaxoth0/Ain/structs"
+)
+
+func main() {
+    queue := structs.NewSyncQueue[string](0)
+    if err := queue.Push("item1"); err != nil {
+        panic(err)
+    }
+    item, ok := queue.Pop()
+    fmt.Println(item, ok)
+}
 ```
 
-#### Stack
+`WaitTillEmpty` and `WaitTillNotEmpty` wait for a condition, with nonpositive
+timeouts meaning no timeout. They do not reserve elements or close the queue.
+`PreserveAndPop` calls two separately locked methods, so it is not an atomic
+transaction. `RollBack` uses the zero value as the absence marker and cannot
+restore a preserved zero value. `UnwrapAndFlush` and `RollBack` do not notify
+condition waiters; avoid relying on them to wake waiting goroutines.
 
-Classic LIFO stack in several implementations.
+### `structs`: Stacks
+
+`StaticStack` has a fixed positive capacity; `DynamicStack` grows as needed and
+uses an initial capacity of 16 when given a nonpositive capacity. Neither is
+synchronized. Wrap a stack with `NewSyncStack` for mutex protection of individual
+method calls, and access the underlying stack only through that wrapper when
+sharing it.
+
 ```go
-stack := structs.NewStaticStack[string](10)
+package main
 
-stack.Push("example 1")
-stack.Push("example 2")
-stack.Pop() // "example 2", true
-stack.Pop() // "example 1", true
-stack.Pop() // "", false
+import (
+    "fmt"
+
+    "github.com/abaxoth0/Ain/structs"
+)
+
+func main() {
+    stack := structs.NewStaticStack[string](10)
+    if !stack.Push("example") {
+        panic("stack full")
+    }
+    item, ok := stack.Pop()
+    fmt.Println(item, ok)
+
+    shared := structs.NewSyncStack[string](structs.NewDynamicStack[string](0))
+    shared.Push("shared item")
+}
 ```
 
-#### WorkerPool
-Concurrent task processing with configurable worker count and graceful shutdown.
+### `structs`: WorkerPool
+
+Tasks implement `Process()`. `NewWorkerPool(ctx, nil)` defaults to a batch size
+of 1 and a shutdown drain timeout of 1 second. Call `Start` once with a positive
+worker count; subsequent calls do nothing, even if the first count was zero.
+The queue is unbounded and task execution order is not guaranteed across workers.
+
+Track task completion explicitly when it matters:
 
 ```go
-type MyTask struct{ data string }
-func (t *MyTask) Process() { /* process task */ }
+package main
 
-pool := structs.NewWorkerPool(context.Background(), nil)
-pool.Start(4) // 4 workers
-pool.Push(&MyTask{data: "test"})
-```
+import (
+    "context"
+    "fmt"
 
-### `logger` - Flexible Logging System
+    "github.com/abaxoth0/Ain/structs"
+)
 
-Multi-level logging with support for forwarding, configuration, and different output targets.
+type task struct{ done chan struct{} }
 
-Features:
-- Multiple log levels (Trace, Debug, Info, Warn, Error, Fatal, Panic)
-- Forwarding capabilities to chain loggers
-- Configurable output formatting
-- Concurrent logger support with background processing
-
-### `errs` - Error Handling
-
-Structured error types with HTTP status code integration.
-
-```go
-err := errs.NewStatusError("Invalid request", http.StatusBadRequest)
-// err.Error() returns "Invalid request"
-// err.Status() returns 400
-```
-
-### `common` - Utility Functions
-
-Common helper functions for everyday Go programming.
-
-#### Retry Mechanism
-Retry functionality to handle transient failures.
-
-```go
-config := &common.RetryConfig{
-    MaxAttempts:  3,
-    MaxBackoff:   time.Second * 5,
-    BackoffScale: time.Millisecond * 100,
+func (t *task) Process() {
+    defer close(t.done)
+    fmt.Println("task processed")
 }
 
-err := common.Retry(func() error {
-    return makeAPICall() // Your operation here
-}, config)
+func main() {
+    pool := structs.NewWorkerPool(context.Background(), nil)
+    pool.Start(4)
+    done := make(chan struct{})
+    if err := pool.Push(&task{done: done}); err != nil {
+        panic(err)
+    }
+    <-done
+    if err := pool.Cancel(); err != nil {
+        panic(err)
+    }
+}
 ```
-#### Other Utilities
+
+`Cancel` marks the pool canceled and signals its context; later `Push` calls
+return errors, and repeated `Cancel` calls return an error. Serialize cancellation
+with producers. Cancellation does not interrupt `Process`, wake workers blocked
+on an empty queue, or join all worker goroutines. Its wait group covers active
+normal batches, not all queued tasks or shutdown draining. `StopTimeout` is
+checked between drain batches and cannot interrupt a blocked task; drain errors
+are discarded. A successful `Cancel` does not guarantee that all tasks finished.
+Canceling the parent context alone does not set `IsCanceled` or reject `Push`.
+
+### `logger`: Logging
+
+Console loggers write synchronously. Use a source wrapper for convenient level
+methods (`Trace`, `Debug`, `Info`, `Warning`, `Error`, `Fatal`, and `Panic`):
 
 ```go
-// Ternary operator
-result := common.Ternary(condition, "yes", "no")
+package main
+
+import "github.com/abaxoth0/Ain/logger"
+
+func main() {
+    output := logger.NewStdOutLogger("")
+    source := logger.NewSource("example", output)
+    source.Info("application started", nil)
+}
 ```
+
+`NewStdErrLogger(prefix)` writes to stderr. Console loggers use the default
+configuration, which filters Debug and Trace. `Fatal` calls `os.Exit(1)`;
+`Panic` panics. These actions do not flush asynchronous file logging.
+
+For file logging, `NewFileLogger` requires a non-nil `*FileLoggerConfig`. Set
+`Path` to a directory whose parent exists. Call `Init()`, then `Start()`, then
+`Stop(true)` and check each error. Files use the name
+`<ApplicationName>_<AppInstance>[<timestamp>].log`; `TimeLayout` defaults to
+`2006-01-02_15-04-05`. `SerializerProducer` defaults to a new `JSONSerializer`;
+provide a fresh serializer per factory call. Default output is one JSON object
+per line. `FilePerm` defaults to `0644` and is also passed to directory creation;
+configure directory permissions appropriate to your deployment.
+
+Treat a `FileLogger` as a single-use instance: `Stop` closes its ring buffer and
+file, and `Start` does not recreate them. Stop producers before shutdown and
+serialize lifecycle calls. `Stop(true)` attempts to drain, sync, and close the
+file, but inherits the Disruptor and WorkerPool limitations above. Serialization
+failures discard entries and write errors are ignored; neither `Log` nor a
+successful `Stop` guarantees durable delivery. Overflow uses a worker pool and
+can reorder entries. Configure forwarding before logging; forwarding changes
+are not synchronized. Forwarded entries bypass the target's filtering and
+critical-level side effects. Entries and their metadata are shared by reference;
+keep them immutable while logging is in progress.
+
+`FileLogger.Stop(strict bool)` differs from `ConcurrentLogger.Stop()`, so
+`*FileLogger` does not implement `ConcurrentLogger`.
+
+### `errs`: Status errors
+
+```go
+package main
+
+import (
+    "fmt"
+    "net/http"
+
+    "github.com/abaxoth0/Ain/errs"
+)
+
+func main() {
+    err := errs.NewStatusError("Invalid request", http.StatusBadRequest)
+    fmt.Println(err.Error(), err.Status())
+}
+```
+
+### `common`: Retry and helpers
+
+`Retry` blocks until success or an attempt limit. A nil config defaults to
+3 attempts, a 5-second maximum backoff, and a 1 ms scale. The initial call counts
+as an attempt; `MaxAttempts <= 0` retries indefinitely and `MaxAttempts == 1`
+executes only the initial call. There is no context cancellation or error filter.
+
+```go
+package main
+
+import (
+    "errors"
+    "fmt"
+    "time"
+
+    "github.com/abaxoth0/Ain/common"
+)
+
+func main() {
+    attempts := 0
+    err := common.Retry(func() error {
+        attempts++
+        if attempts < 2 {
+            return errors.New("temporary failure")
+        }
+        return nil
+    }, &common.RetryConfig{
+        MaxAttempts: 3,
+        MaxBackoff: 5 * time.Second,
+        BackoffScale: 100 * time.Millisecond,
+    })
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println("operation succeeded")
+}
+```
+
+After a failure, retries run in a goroutine while the caller waits. Backoff is
+`2^attempts * BackoffScale` plus 0–9 ms of jitter, capped by `MaxBackoff`.
+Currently, a zero `MaxBackoff` clamps the delay to zero. The implementation may
+mutate a zero `BackoffScale`, so use a separate configuration per concurrent call.
+There is also an attempt-limit bug: after returning the last error, the retry
+goroutine continues, can call the operation again, and can block forever sending
+a result. Account for this before using retries for operations with side effects.
+
+Other helpers include `Ternary` (both value arguments are evaluated), `MapKeys`,
+`MapValues`, and `MapPop` (returns a key's value and deletes the key, or returns the zero value
+when absent).
+Map helper results follow unspecified Go map iteration order where applicable;
+these helpers do not synchronize concurrent map access. `structs.Meta` is also a
+plain map, and its global well-known property registry is unsynchronized.
 
 ## Performance
 
-The Disruptor implementation provides high-throughput, low-latency messaging suitable for:
-- Event processing systems
-- Message queues
-- Producer-consumer patterns
-- High-frequency trading systems
+The current benchmarks have measurement and comparability limitations and do not
+establish throughput rankings, latency bounds, or suitability for a production
+workload. See [BENCHMARKS.md](BENCHMARKS.md) for the method review and bounded
+smoke commands.
 
-Benchmark results and performance characteristics are documented in the [BENCHMARKS.md](BENCHMARKS.md).
+## Contributing and license
 
-**Current Performance Summary (100 iterations, statistical analysis):**
-- **Single Operations**: Disruptor 69.3B ops/s (0.01±0.00ns), Channels 42.5M ops/s (23.55±0.21ns), SyncQueue 14.2M ops/s (70.43±11.0ns)
-- **Throughput**: Channels 876K±42K items/sec (most stable), Disruptor 834K±145K (competitive, higher variance), SyncQueue 832K±81K (surprisingly competitive)
-- **Memory Efficiency**: Disruptor & Channels: 0 allocations, SyncQueue: 218K±839 B/op (47 allocs)
-- **Best Use Cases**: Channels for consistency, Disruptor for high-concurrency scenarios, SyncQueue when features outweigh performance
-
-All benchmarks use automated script (`scripts/bench.py`) for 100-iteration statistical analysis.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and validation commands.
+Ain is licensed under the [MIT License](LICENSE).
