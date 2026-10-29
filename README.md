@@ -284,13 +284,11 @@ func main() {
 }
 ```
 
-After a failure, retries run in a goroutine while the caller waits. Backoff is
+All attempts run synchronously in the caller, and no callback runs after
+`Retry` returns. Callback panics propagate to the caller. Backoff is
 `2^attempts * BackoffScale` plus 0–9 ms of jitter, capped by `MaxBackoff`.
 Currently, a zero `MaxBackoff` clamps the delay to zero. The implementation may
 mutate a zero `BackoffScale`, so use a separate configuration per concurrent call.
-There is also an attempt-limit bug: after returning the last error, the retry
-goroutine continues, can call the operation again, and can block forever sending
-a result. Account for this before using retries for operations with side effects.
 
 Other helpers include `Ternary` (both value arguments are evaluated), `MapKeys`,
 `MapValues`, and `MapPop` (returns a key's value and deletes the key, or returns the zero value

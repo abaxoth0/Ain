@@ -58,8 +58,8 @@ Other implementation limits relevant to callers:
   durable delivery. Fatal logging exits without waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global
   well-known metadata property registry require caller coordination.
-- Retry can continue its operation after returning an attempt-limit error and
-  leave a goroutine blocked sending a result. It has no context cancellation.
+- Retry runs callbacks synchronously and stops at its attempt limit. It has no
+  context cancellation and cannot interrupt a running callback.
 
 See [README.md](README.md) for API-specific usage and lifecycle details. These
 limitations require implementation fixes; documentation and passing tests do not

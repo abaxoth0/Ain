@@ -46,11 +46,9 @@ type RetryConfig struct {
 // Retry executes a function with configurable retry logic using exponential backoff with jitter.
 // Returns the last error encountered if all attempts fail, or nil if successful.
 //
-// The initial call runs in the caller; retries run in a goroutine while the caller
-// blocks for the result. Use a separate configuration for concurrent calls, since
-// a zero BackoffScale may be replaced with the default.
-// At the attempt limit, the retry goroutine sends an error but continues running.
-// It can call fn after Retry returns and block forever sending another result.
+// All calls run synchronously in the caller; fn is never called after return.
+// Use a separate configuration for concurrent calls, since a zero BackoffScale
+// may be replaced with the default.
 //
 // Backoff Algorithm:
 // delay = 2^attempts * BackoffScale + random jitter(0-10ms)
@@ -79,28 +77,19 @@ func Retry(fn func() error, cfg *RetryConfig) error {
 		cfg.BackoffScale = time.Millisecond
 	}
 
-	errChan := make(chan error)
-	attempts := 1
-
-	go func() {
-		for err != nil {
-			if cfg.MaxAttempts > 0 && attempts >= cfg.MaxAttempts {
-				errChan <- err
-			}
-
-			backoff := time.Duration(math.Pow(2, float64(attempts))) * cfg.BackoffScale
-			backoff += time.Duration(rand.Intn(10)) * time.Millisecond // #nosec G404 -- Retry jitter does not require cryptographic randomness.
-			if backoff > cfg.MaxBackoff {
-				backoff = cfg.MaxBackoff
-			}
-
-			time.Sleep(backoff)
-
-			err = fn()
-			attempts++
+	for attempts := 1; err != nil; attempts++ {
+		if cfg.MaxAttempts > 0 && attempts >= cfg.MaxAttempts {
+			return err
 		}
-		errChan <- err
-	}()
 
-	return <-errChan
+		backoff := time.Duration(math.Pow(2, float64(attempts))) * cfg.BackoffScale
+		backoff += time.Duration(rand.Intn(10)) * time.Millisecond // #nosec G404 -- Retry jitter does not require cryptographic randomness.
+		if backoff > cfg.MaxBackoff {
+			backoff = cfg.MaxBackoff
+		}
+
+		time.Sleep(backoff)
+		err = fn()
+	}
+	return nil
 }
