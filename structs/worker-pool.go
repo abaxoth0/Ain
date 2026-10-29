@@ -20,7 +20,7 @@ type Task interface {
 type WorkerPoolOptions struct {
 	// Default: 1. If <= 0, will be set to default.
 	BatchSize int
-	// Maximum time to wait for tasks to complete on shutdown.
+	// Drain timeout checked between batches; it cannot interrupt Process.
 	// Default: 1s. If <= 0, will be set to default.
 	StopTimeout time.Duration
 }
@@ -80,8 +80,8 @@ func (wp *WorkerPool) Start(workerCount int) {
 	})
 }
 
-// Attempts to process remaining tasks within the timeout period.
-// Returns nil if all tasks processed, errs.StatusTimeout if timeout exceeded.
+// Attempts to drain remaining tasks, checking the timeout between batches.
+// Returns nil when the queue is empty or errs.StatusTimeout between batches.
 func (wp *WorkerPool) stop() error {
 	timeout := time.After(wp.opt.StopTimeout)
 	for {
@@ -142,9 +142,10 @@ func (wp *WorkerPool) IsCanceled() bool {
 	return wp.canceled.Load()
 }
 
-// Gracefully shuts down the worker pool.
-// The worker pool will finish all its tasks before stopping.
-// Once canceled, the worker pool cannot be started again.
+// Cancel marks the pool canceled, cancels its context, and waits for batches
+// registered with the wait group. It does not wake idle workers, join all workers,
+// or wait for shutdown draining. Drain errors are not returned.
+// Serialize Cancel with producers; repeated calls return an error.
 func (wp *WorkerPool) Cancel() error {
 	if wp.canceled.Load() {
 		return errors.New("worker pool is already canceled")

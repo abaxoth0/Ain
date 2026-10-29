@@ -18,7 +18,7 @@ Since this is a personal utility library (not a professional-oriented library), 
 
 1. **Create a new issue** in the GitHub repository
 2. **Use the "Security" label** (if available) or "Bug"
-3. **Mark as sensitive** in the issue description if GitHub provides that option
+3. **Keep public reports free of secrets**: repository issues are public; avoid including secrets or private data
 
 ### What to Include
 
@@ -38,53 +38,46 @@ Since this is a personal utility library (not a professional-oriented library), 
 
 ## Security Considerations
 
-### Concurrent Code
+### Concurrency and lifecycle limits
 
-This library contains high-performance concurrent data structures. Be aware of:
+Atomic cursors alone do not establish that the Disruptor buffer is safe. In
+`Publish`, the writer cursor advances before the slot is assigned. A consumer
+can therefore read an unwritten slot, including when multiple publishers finish
+out of order. There is no coordination between multiple consumers.
 
-- **Race detector**: Some code may trigger false positives with `-race` flag due to lock-free implementations
-- **Atomic operations**: The Disruptor uses atomic operations with specific memory ordering
-- **Memory safety**: Zero-allocation paths are used to prevent GC pressure
+`Publish` and `Consume` are marked `//go:norace`. Their buffer accesses are not
+instrumented, so a passing race-detector run cannot validate these paths. The
+previous claim that warnings were harmless false positives was unsupported.
+Treat race reports as findings to investigate, not warnings to dismiss.
 
-### Dependencies
+Other implementation limits relevant to callers:
 
-There are no third-party dependencies for this library.
+- Disruptor `Close` is not idempotent and does not join the consumer.
+- WorkerPool cancellation does not wake idle queue waiters or guarantee that
+  queued tasks and drain work have finished. It cannot interrupt a running task.
+- FileLogger inherits the Disruptor and WorkerPool limits. Serialization failures
+  discard entries, write errors are ignored, and shutdown does not establish
+  durable delivery. Fatal logging exits without waiting for file output.
+- Logger configuration, forwarding changes, shared metadata, and the global
+  well-known metadata property registry require caller coordination.
+- Retry can continue its operation after returning an attempt-limit error and
+  leave a goroutine blocked sending a result. It has no context cancellation.
 
-### No User Data Collection
+See [README.md](README.md) for API-specific usage and lifecycle details. These
+limitations require implementation fixes; documentation and passing tests do not
+remove them.
 
-Ain is a library only and does not:
-- Collect user data
-- Make network calls (except for testing/benchmarking)
-- Access filesystem (except for optional file logging)
-- Handle sensitive information directly
+### Dependencies and data handling
 
-## Known Security Notes
+The library has no third-party Go dependencies. Optional development and CI tools
+have their own dependencies.
 
-### Race Detector False Positives
-
-The Disruptor implementation may trigger race detector warnings even though the code is thread-safe. This is documented in `structs/disruptor.go:120`:
-
-```go
-/*
-    IMPORTANT
-    Race detector notes: When running with -race, Go's race detector flags publisher-consumer buffer access as data races.
-    These are false positives because:
-    
-      1. CAS on writer cursor ensures only one publisher can claim a sequence number
-      2. Writer is advanced only after CAS succeeds (establishes happens-before relationship)
-      3. Consumer reads after seeing updated writer cursor (synchronized through atomic operations)
-      4. No mutexes used - fully lock-free implementation
-    
-    The race detector doesn't understand happens-before relationships established through
-    atomic operations on different variables.
-*/
-```
-
-### Memory Safety
-
-- **Disruptor**: Pre-allocated ring buffer prevents dynamic allocations during operation
-- **SyncQueue**: Uses proper synchronization with mutexes
-- **WorkerPool**: Context-based cancellation for safe shutdown
+Ain does not provide telemetry or built-in network clients. FileLogger writes log
+entries to the configured filesystem path; console loggers write to stdout or
+stderr. Log contents, error strings, and metadata are caller-supplied and may
+contain sensitive data. Choose file permissions and log destinations accordingly.
+Callbacks supplied to Retry and WorkerPool execute application code and may have
+network, filesystem, or other side effects.
 
 ## Best Practices for Users
 

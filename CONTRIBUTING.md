@@ -5,7 +5,7 @@ Thank you for your interest in contributing to Ain! This guide will help you get
 ## Prerequisites
 
 - **Go 1.23.0 or later**
-- **Python 3.8+** (optional, for benchmark scripts)
+- **Python 3.10+** (optional, for benchmark scripts)
 - **Git**
 
 ## Getting Started
@@ -37,7 +37,7 @@ Thank you for your interest in contributing to Ain! This guide will help you get
 
 - **Tests with race detector** (recommended for concurrent code):
   ```bash
-  go test -race ./...
+  go test -race -timeout=10m ./...
   ```
 
 - **Test coverage:**
@@ -47,17 +47,25 @@ Thank you for your interest in contributing to Ain! This guide will help you get
 
 ### Running Benchmarks
 
-- **Quick benchmarks:**
+- **Bounded benchmark smoke check:**
   ```bash
-  go test -bench=. -benchmem ./structs
+  go test -run='^$' -bench=. -benchmem -benchtime=100x -count=1 ./structs
   ```
 
-- **Comprehensive benchmark suite (100 iterations):**
+- **Repeated throughput samples:**
   ```bash
-  python3 scripts/bench.py -c 100 --path ./structs
+  go test -run='^$' -bench='_Throughput$' -benchmem -benchtime=100x -count=5 ./structs
   ```
 
-The automated benchmark script generates statistical analysis and CSV reports in the `scripts/` directory.
+Read [BENCHMARKS.md](BENCHMARKS.md) before interpreting results. The existing
+suite has normalization, timing, and comparability limitations. The legacy
+`scripts/bench.py` collector writes CSV files in the current working directory;
+it does not perform statistical analysis.
+
+Disruptor's `Publish` and `Consume` use `//go:norace`, so the race detector does
+not instrument their buffer accesses. A passing race run is not proof of safe
+concurrent delivery. Review the lifecycle and concurrency limits in
+[README.md](README.md) when adding concurrent code.
 
 ### Code Quality
 
@@ -71,7 +79,7 @@ gofmt -w .
 go vet ./...
 
 # Run tests with race detector
-go test -race ./...
+go test -race -timeout=10m ./...
 ```
 
 For workflow regression tests:
@@ -94,51 +102,56 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 
 ```
 Ain/
-├── structs/     # Concurrent data structures
+├── structs/     # Data structures and concurrency helpers
 ├── logger/      # Flexible logging system
 ├── errs/        # Error handling utilities
 ├── common/      # Common helper functions
-└── scripts/     # Benchmark and analysis tools
+└── scripts/     # Benchmark, analysis, and workflow validation tools
 ```
 
 ### Package Overview
 
-- **`structs`**: Data structures (Disruptor, SyncQueue, WorkerPool)
+- **`structs`**: Disruptor, SyncQueue, stacks, WorkerPool, and metadata helpers
 - **`logger`**: Multi-level logging with forwarding capabilities
 - **`errs`**: Structured error types with HTTP status codes
 - **`common`**: Utility functions and helpers
 
 ## Pull Request Process
 
-1. **Fork the repository** and create a feature branch:
+1. **Fork the repository** and create a branch using git-flow naming
+   (`feature/...` or `hotfix/...`). Do not edit or commit directly on `dev` or
+   `main` unless explicitly authorized:
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 2. **Make your changes** and ensure:
    - All tests pass (`go test ./...`)
-   - Tests pass with race detector (`go test -race ./...`)
+   - Tests pass with race detector (`go test -race -timeout=10m ./...`)
    - Code is formatted (`gofmt -w .`)
    - New features include tests
    - Documentation is updated if needed
 
 3. **Run benchmarks** if your changes affect performance:
    ```bash
-   go test -bench=. -benchmem ./structs
+   go test -run='^$' -bench=. -benchmem -benchtime=100x -count=1 ./structs
    ```
 
-4. **Commit your changes** with clear, descriptive messages:
+4. **Update `CHANGELOG.md`** under `Unreleased`, then commit all task changes
+   with a concise `[scope] message`:
    ```bash
-   git commit -m "feat: add new feature description"
+   git commit -m "[structs] add task processing option"
    ```
+   Include a regression test for bug fixes and run smoke, unit, and integration
+   checks for affected modules before committing. Leave the working tree clean.
 
 5. **Push to your fork** and create a pull request.
 
 ### Pull Request Guidelines
 
-- **Title**: Use conventional commits format (`feat:`, `fix:`, `docs:`, etc.)
+- **Title**: Use the `[scope] message` format (for example, `[docs] clarify queue lifecycle`)
 - **Description**: Explain what you changed and why
-- **Testing**: Mention that all tests pass
+- **Testing**: List the checks run and their results, including any failures
 - **Performance**: Include benchmark results if applicable
 - **Documentation**: Update README if adding new features
 
@@ -146,7 +159,7 @@ Ain/
 
 ### Test Coverage
 
-- Aim for high test coverage (current: logger 83.7%, structs 97.5%)
+- Measure current coverage with `go test -cover ./...`; do not assume historical percentages still apply
 - Test both happy paths and error cases
 - Test concurrent code with race detector
 - Include benchmark tests for performance-critical code
@@ -160,10 +173,10 @@ Ain/
 
 ## Performance Considerations
 
-This library focuses on high-performance concurrent data structures. When contributing:
+When changing performance-sensitive code:
 
 - **Benchmark your changes**: Use the existing benchmark suite
-- **Consider memory allocations**: Zero-allocation paths are preferred
+- **Consider memory allocations**: Measure setup and steady-state costs separately
 - **Test under contention**: Simulate real-world high-load scenarios
 - **Profile**: Use `pprof` for performance optimization
 

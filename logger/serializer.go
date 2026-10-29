@@ -6,8 +6,9 @@ import (
 )
 
 // Interface for serializing log entries.
-// Implementations must be safe for concurrent use from multiple goroutines
-// since a single instance may be retrieved from a pool and used concurrently.
+// FileLogger borrows one instance per handler call from a sync.Pool.
+// SerializerProducer must return a fresh instance on each call; callers must
+// synchronize any shared mutable state across instances.
 type Serializer interface {
 	// Clears the serializer's internal buffer, preparing it for a new entry.
 	Reset()

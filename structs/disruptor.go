@@ -43,7 +43,9 @@ func (w yieldSeqWait) WaitFor(seq int64, cursor *sequence, done <-chan struct{})
 	}
 }
 
-// Implements the LMAX Disruptor pattern for high-performance ring buffer messaging.
+// Disruptor is a ring buffer with atomic cursors.
+// Concurrent publication and consumption are not safe: Publish advances the
+// writer cursor before writing the slot. Multiple consumers are not coordinated.
 type Disruptor[T any] struct {
 	buffer     []T
 	bufferSize int       // must be power of 2
@@ -106,41 +108,24 @@ func NewDisruptorWithSize[T any](size int, conf *DisruptorConfig) (*Disruptor[T]
 	return d, nil
 }
 
-// Closes the Disruptor and signals all goroutines to stop.
-// After closing, the disruptor cannot be used again.
+// Close signals shutdown without waiting for Consume to return.
+// Calling Close more than once panics. The Disruptor cannot be reused.
 func (d *Disruptor[T]) Close() {
 	close(d.done)
 	// Set closed flag immediately if no consumer is running
 	d.closed.Store(true)
 }
 
-// Returns true if all entries have been processed
+// IsEmpty reports whether the reader and writer cursors are equal.
+// It is a snapshot, not a barrier against concurrent publication.
 func (d *Disruptor[T]) IsEmpty() bool {
 	return d.writer.Value.Load() == d.reader.Value.Load()
 }
 
-/*
-	IMPORTANT
-	Race detector notes: When running with -race, Go's race detector flags publisher-consumer buffer access as data races.
-	These are false positives because:
-
-	  1. CAS on writer cursor ensures only one publisher can claim a sequence number
-
-	  2. Writer is advanced only after CAS succeeds (establishes happens-before relationship)
-
-	  3. Consumer reads after seeing updated writer cursor (synchronized through atomic operations)
-
-	  4. No mutexes used - fully lock-free implementation
-
-	The race detector doesn't understand happens-before relationships established through
-	atomic operations on different variables.
-	The algorithm is logically correct and tests pass without -race.
-
-	So to mitigate this false positives Publish() and Consume() have go:norace directive enabled.
-*/
-
 // Attempts to add an entry to the disruptor buffer.
 // Returns false if buffer is full or if Disruptor is closed.
+// Publish and Consume disable race instrumentation; passing race tests does not
+// validate concurrent buffer access.
 //
 //go:norace
 func (d *Disruptor[T]) Publish(entry T) bool {
@@ -160,12 +145,8 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 				return false
 			}
 
-			// Try to atomically advance the writer using CAS
-			// Only one goroutine will succeed in this CAS, preventing race conditions
-			// between concurrent publishers trying to claim the same slot.
+			// CAS claims a distinct sequence, but exposes it before the slot is written.
 			if d.writer.Value.CompareAndSwap(writer, nextWriter) {
-				// The CAS provides a memory barrier (release semantics) ensuring buffer write
-				// is visible to consumers before they see the updated writer cursor.
 				d.buffer[nextWriter&d.bufferMask] = entry
 				return true
 			}
@@ -175,7 +156,9 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 }
 
 // Starts consuming entries from the disruptor using the provided handler.
-// This method blocks until the disruptor is closed. Returns error if disruptor is already closed.
+// Consume blocks, calls handler synchronously, and attempts to drain on Close.
+// It returns an error if already closed. Only one consumer may be used.
+// Concurrent publication can expose unwritten slots; see Disruptor.
 //
 //go:norace
 func (d *Disruptor[T]) Consume(handler func(T)) error {

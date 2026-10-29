@@ -147,7 +147,8 @@ func (q *SyncQueue[T]) Preserve() {
 }
 
 // Restores the previously preserved element to the front of the queue.
-// Does nothing if no element was preserved.
+// The zero value marks absence, so a preserved zero value cannot be restored.
+// RollBack does not notify condition waiters.
 func (q *SyncQueue[T]) RollBack() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
@@ -170,6 +171,7 @@ func (q *SyncQueue[T]) RollBack() {
 
 // Preserves the current head element and then pops it from the queue.
 // This is equivalent to calling Preserve() followed by Pop().
+// The calls lock separately, so the pair is not atomic.
 func (q *SyncQueue[T]) PreserveAndPop() (T, bool) {
 	q.Preserve()
 	return q.Pop()
@@ -278,6 +280,7 @@ func (q *SyncQueue[T]) Unwrap() []T {
 
 // Returns a copy of all current queue elements and removes them from the queue.
 // Same as Unwrap, but also deletes all elements in queue.
+// UnwrapAndFlush does not notify condition waiters.
 func (q *SyncQueue[T]) UnwrapAndFlush() []T {
 	q.mut.Lock()
 
