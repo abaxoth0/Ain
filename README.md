@@ -210,8 +210,10 @@ For file logging, `NewFileLogger` requires a non-nil `*FileLoggerConfig`. Set
 `<ApplicationName>_<AppInstance>[<timestamp>].log`; `TimeLayout` defaults to
 `2006-01-02_15-04-05`. `SerializerProducer` defaults to a new `JSONSerializer`;
 provide a fresh serializer per factory call. Default output is one JSON object
-per line. `FilePerm` defaults to `0644` and is also passed to directory creation;
-configure directory permissions appropriate to your deployment.
+per line. `FilePerm` defaults to `0644` for regular files. `DirPerm` defaults to
+`0755` for new directories; existing directory permissions are unchanged. Both
+modes are subject to the process umask on POSIX systems. For private logs, set
+`FilePerm: 0600` and, if desired, `DirPerm: 0700`.
 
 Treat a `FileLogger` as a single-use instance: `Stop` closes its ring buffer and
 file, and `Start` does not recreate them. Stop producers before shutdown and

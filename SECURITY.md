@@ -74,6 +74,9 @@ Ain does not provide telemetry or built-in network clients. FileLogger writes lo
 entries to the configured filesystem path; console loggers write to stdout or
 stderr. Log contents, error strings, and metadata are caller-supplied and may
 contain sensitive data. Choose file permissions and log destinations accordingly.
+FileLogger uses separate defaults of `0644` for log files and `0755` for new
+directories, subject to the process umask on POSIX systems. Set `FilePerm` and
+`DirPerm` to restrict access; existing directories retain their permissions.
 Callbacks supplied to Retry and WorkerPool execute application code and may have
 network, filesystem, or other side effects.
 

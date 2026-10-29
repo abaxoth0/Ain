@@ -21,6 +21,8 @@ const (
 	DefaultStopTimeout       = time.Second * 10
 	// Default file permission for log files (rw-r--r--).
 	FileLoggerDefaultFilePerm os.FileMode = 0644
+	// Default permission for new log directories (rwxr-xr-x).
+	FileLoggerDefaultDirPerm os.FileMode = 0755
 )
 
 type FileLoggerConfig struct {
@@ -29,6 +31,8 @@ type FileLoggerConfig struct {
 	TimeLayout string
 	// File permissions for log files
 	FilePerm os.FileMode //Default: 0644
+	// Permissions for newly created directories; existing directories are unchanged.
+	DirPerm os.FileMode // Default: 0755
 	// Amount of goroutines in fallback WorkerPool (which is used only when main ring buffer is overflowed).
 	FallbackWorkers    int               // Default: 5
 	FallbackBatchSize  int               // Default: 500
@@ -44,6 +48,9 @@ func (c *FileLoggerConfig) fillEmptySettings() {
 	}
 	if c.FilePerm == 0 {
 		c.FilePerm = FileLoggerDefaultFilePerm
+	}
+	if c.DirPerm == 0 {
+		c.DirPerm = FileLoggerDefaultDirPerm
 	}
 	if c.LoggerConfig == nil {
 		c.LoggerConfig = defaultLoggerConfig
@@ -122,7 +129,7 @@ func (l *FileLogger) Init() error {
 	if !info.IsDir() {
 		return errors.New("file at Path isn't directory")
 	}
-	if err := os.MkdirAll(l.config.Path, l.config.FilePerm); err != nil {
+	if err := os.MkdirAll(l.config.Path, l.config.DirPerm); err != nil {
 		return err
 	}
 

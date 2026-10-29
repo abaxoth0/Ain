@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Create usable log directories with a separate DirPerm setting (default 0755), preserving FilePerm restrictions and existing directory modes.
 - Stop Retry at its attempt limit without further callbacks or a leaked goroutine; execute retries synchronously.
 - Publish Disruptor payloads before exposing them, coordinate Close with publishers, and restore race instrumentation.
 - Streamline benchmark guidance and README links.

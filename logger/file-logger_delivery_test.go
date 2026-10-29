@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ func TestFileLoggerConcurrentPayloadDelivery(t *testing.T) {
 	const total = publishers * perPublisher
 	processed := make(chan struct{}, total)
 	l, err := NewFileLogger(&FileLoggerConfig{
-		Path: t.TempDir(),
+		Path: filepath.Join(t.TempDir(), "logs"),
 		SerializerProducer: func() Serializer {
 			return &notifyingJSONSerializer{NewJSONSerializer(), processed}
 		},
