@@ -475,7 +475,9 @@ func TestFileLogger(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		if !logger.isInit {
 			t.Error("Expected logger to be initialized")
 		}
@@ -501,7 +503,9 @@ func TestFileLogger(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		if err := logger.Start(); err != nil {
 			t.Fatalf("Expected no error starting logger, got %v", err)
 		}
@@ -522,7 +526,9 @@ func TestFileLogger(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		err = logger.Stop(true)
 		if err == nil {
 			t.Error("Expected error when stopping unstarted logger")
@@ -649,8 +655,12 @@ func TestFileLogger(t *testing.T) {
 
 		mock1 := &mockLogger{}
 		mock2 := &mockLogger{}
-		logger.AddForwarding(mock1)
-		logger.AddForwarding(mock2)
+		if err := logger.AddForwarding(mock1); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if err := logger.AddForwarding(mock2); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
 		logger.Log(&entry)
@@ -674,7 +684,9 @@ func TestLogTask(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		entry := NewLogEntry(InfoLogLevel, "test_source", "test message", "", nil)
 		task := logTask{entry: &entry, logger: logger}
@@ -736,7 +748,9 @@ func TestFileLoggerSerializerDI(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		if err := logger.Start(); err != nil {
 			t.Fatalf("Expected no error starting logger, got %v", err)
 		}
@@ -768,7 +782,9 @@ func TestFileLoggerSerializerDI(t *testing.T) {
 			t.Fatal("Expected logger to be non-nil with nil producer")
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		if err := logger.Start(); err != nil {
 			t.Fatalf("Expected no error starting logger, got %v", err)
 		}
@@ -796,7 +812,9 @@ func TestFileLoggerSerializerDI(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		if err := logger.Start(); err != nil {
 			t.Fatalf("Expected no error starting logger, got %v", err)
 		}
@@ -853,15 +871,21 @@ func TestConcurrentLogging(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 		if err := logger.Start(); err != nil {
 			t.Fatalf("Expected no error starting logger, got %v", err)
 		}
 
 		mock1 := &mockLogger{}
 		mock2 := &mockLogger{}
-		logger.AddForwarding(mock1)
-		logger.AddForwarding(mock2)
+		if err := logger.AddForwarding(mock1); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if err := logger.AddForwarding(mock2); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		source := NewSource("test_source", logger)
 
@@ -905,11 +929,15 @@ func TestFileLoggerStart(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		done := make(chan bool)
 		go func() {
-			logger.Start()
+			if err := logger.Start(); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
 			done <- true
 		}()
 
@@ -939,11 +967,15 @@ func TestFileLoggerStart(t *testing.T) {
 			t.Fatalf("Expected no error, get %v", err)
 		}
 
-		logger.Init()
+		if err := logger.Init(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		done := make(chan bool)
 		go func() {
-			logger.Start()
+			if err := logger.Start(); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
 			done <- true
 		}()
 

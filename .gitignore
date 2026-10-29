@@ -1,1 +1,4 @@
 cmd
+__pycache__/
+coverage.out
+dist/

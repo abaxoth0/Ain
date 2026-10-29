@@ -74,6 +74,13 @@ go vet ./...
 go test -race ./...
 ```
 
+For workflow regression tests:
+
+```bash
+python3 -m pip install -r scripts/requirements-ci.txt
+python3 -m unittest discover -s scripts -p 'test_*.py'
+```
+
 ## Code Style Guidelines
 
 - Follow Go conventions and standard formatting
@@ -91,7 +98,6 @@ Ain/
 ├── logger/      # Flexible logging system
 ├── errs/        # Error handling utilities
 ├── common/      # Common helper functions
-├── cmd/         # Example/demo code
 └── scripts/     # Benchmark and analysis tools
 ```
 

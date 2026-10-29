@@ -25,7 +25,7 @@ const (
 
 type FileLoggerConfig struct {
 	// Path to the directory where log files will be stored
-	Path string
+	Path       string
 	TimeLayout string
 	// File permissions for log files
 	FilePerm os.FileMode //Default: 0644
@@ -129,7 +129,7 @@ func (l *FileLogger) Init() error {
 		l.config.ApplicationName, l.config.AppInstance, time.Now().Format(l.config.TimeLayout),
 	)
 
-	f, err := os.OpenFile(
+	f, err := os.OpenFile( // #nosec G304 -- The log path is supplied by the application's configuration.
 		path.Join(l.config.Path, fileName),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 		l.config.FilePerm,
@@ -166,7 +166,9 @@ func (l *FileLogger) Start() error {
 
 	l.isRunning.Store(true)
 
-	go l.buffer.Consume(l.handler)
+	go func() {
+		_ = l.buffer.Consume(l.handler)
+	}()
 	go l.fallback.Start(l.config.FallbackWorkers)
 
 	return nil
@@ -241,14 +243,14 @@ func (l *FileLogger) handler(entry *LogEntry) {
 	// NOTE:
 	// Logger from built-in "log" package uses mutexes and atomic operations
 	// under the hood, so it's already thread safe.
-	l.logger.Writer().Write(append(stream.Buffer(), '\n'))
+	_, _ = l.logger.Writer().Write(append(stream.Buffer(), '\n'))
 }
 
 func (l *FileLogger) log(entry *LogEntry) {
 	if ok := l.buffer.Publish(entry); ok {
 		return
 	}
-	l.fallback.Push(l.taskProducer(entry))
+	_ = l.fallback.Push(l.taskProducer(entry))
 }
 
 func (l *FileLogger) Log(entry *LogEntry) {

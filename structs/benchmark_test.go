@@ -23,7 +23,7 @@ func BenchmarkDisruptor_SingleOperation(b *testing.B) {
 	// Simple single operation test without consumer
 	// Just test raw publish operation speed
 	b.StopTimer()
-	d, err := NewDisruptorWithSize[TestData](1 << 20, nil) // 1M buffer
+	d, err := NewDisruptorWithSize[TestData](1<<20, nil) // 1M buffer
 	if err != nil {
 		b.Fatal("Failed to create disruptor:", err)
 	}
@@ -50,7 +50,9 @@ func BenchmarkSyncQueue_SingleOperation(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		data := TestData{ID: int64(i)}
-		q.Push(data)
+		if err := q.Push(data); err != nil {
+			b.Errorf("Unexpected error: %v", err)
+		}
 	}
 }
 
@@ -81,9 +83,11 @@ func BenchmarkDisruptor_Throughput(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		d.Consume(func(data TestData) {
+		if err := d.Consume(func(data TestData) {
 			atomic.AddInt64(&processed, 1)
-		})
+		}); err != nil {
+			b.Errorf("Unexpected consume error: %v", err)
+		}
 	}()
 
 	// Small delay to ensure consumer starts
@@ -162,7 +166,9 @@ func BenchmarkSyncQueue_Throughput(b *testing.B) {
 		// Push items
 		for j := 0; j < TestItems; j++ {
 			data := TestData{ID: int64(j)}
-			q.Push(data)
+			if err := q.Push(data); err != nil {
+				b.Errorf("Unexpected error: %v", err)
+			}
 		}
 
 		// Wait for all items to be processed

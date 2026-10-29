@@ -278,11 +278,13 @@ func TestDisruptorClose(t *testing.T) {
 
 		go func() {
 			defer close(done)
-			d.Consume(func(entry int) {
+			if err := d.Consume(func(entry int) {
 				consumedMu.Lock()
 				consumed = append(consumed, entry)
 				consumedMu.Unlock()
-			})
+			}); err != nil {
+				t.Errorf("Unexpected consume error: %v", err)
+			}
 		}()
 
 		time.Sleep(50 * time.Millisecond)
@@ -318,11 +320,13 @@ func TestDisruptorConcurrency(t *testing.T) {
 
 		go func() {
 			defer close(consumeDone)
-			d.Consume(func(entry int) {
+			if err := d.Consume(func(entry int) {
 				consumedMu.Lock()
 				consumed = append(consumed, entry)
 				consumedMu.Unlock()
-			})
+			}); err != nil {
+				t.Errorf("Unexpected consume error: %v", err)
+			}
 		}()
 
 		// Small delay to ensure consumer starts before publishers
@@ -423,11 +427,13 @@ func TestDisruptorStress(t *testing.T) {
 
 		go func() {
 			defer close(consumeDone)
-			d.Consume(func(entry int) {
+			if err := d.Consume(func(entry int) {
 				consumedMu.Lock()
 				consumed = append(consumed, entry)
 				consumedMu.Unlock()
-			})
+			}); err != nil {
+				t.Errorf("Unexpected consume error: %v", err)
+			}
 		}()
 
 		time.Sleep(10 * time.Millisecond)

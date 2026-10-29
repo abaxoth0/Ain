@@ -86,8 +86,8 @@ func TestSyncQueuePush(t *testing.T) {
 			t.Error("Third push should fail due to size limit")
 		}
 
-		if err.Error() != "Queue size exceeded" {
-			t.Errorf("Expected 'Queue size exceeded' error, got: %v", err)
+		if err.Error() != "queue size exceeded" {
+			t.Errorf("Expected 'queue size exceeded' error, got: %v", err)
 		}
 	})
 }
@@ -429,7 +429,9 @@ func TestSyncQueueWaitTillNotEmpty(t *testing.T) {
 
 		go func() {
 			time.Sleep(10 * time.Millisecond)
-			q.Push(1)
+			if err := q.Push(1); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
 		}()
 
 		err := q.WaitTillNotEmpty(0)
@@ -519,7 +521,9 @@ func TestSyncQueueConcurrency(t *testing.T) {
 		var pushCountMu, popCountMu sync.Mutex
 
 		for i := range 100 {
-			q.Push(i)
+			if err := q.Push(i); err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
 		}
 
 		wg.Add(1)

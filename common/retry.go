@@ -86,7 +86,7 @@ func Retry(fn func() error, cfg *RetryConfig) error {
 			}
 
 			backoff := time.Duration(math.Pow(2, float64(attempts))) * cfg.BackoffScale
-			backoff += time.Duration(rand.Intn(10)) * time.Millisecond // add jitter
+			backoff += time.Duration(rand.Intn(10)) * time.Millisecond // #nosec G404 -- Retry jitter does not require cryptographic randomness.
 			if backoff > cfg.MaxBackoff {
 				backoff = cfg.MaxBackoff
 			}

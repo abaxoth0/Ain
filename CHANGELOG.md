@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Run CI on dev and main, validate workflows, and test Go 1.23 and the current stable version.
+- Update lint and security tooling and resolve existing findings.
+- Gate library releases on CI, fetch release history, and grant release publishing permissions.
+- Remove binary packaging and the obsolete SLSA binary release workflow.
+
 ## [v1.2.1] - 2026-04-17
 
 ### Added
@@ -58,4 +67,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - All
-

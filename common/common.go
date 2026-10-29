@@ -36,4 +36,3 @@ func MapPop[K comparable, V any](m map[K]V, k K) V {
 	}
 	return r
 }
-
