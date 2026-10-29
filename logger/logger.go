@@ -57,7 +57,7 @@ func preprocess(entry *LogEntry, forwardings []Logger, config *LoggerConfig) boo
 		return false
 	}
 
-	if forwardings != nil && len(forwardings) != 0 {
+	if len(forwardings) != 0 {
 		for _, forwarding := range forwardings {
 			// Must call log() not Log(), since log() just does logging
 			// without any additional side effects.

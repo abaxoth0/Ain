@@ -278,7 +278,7 @@ func (s *DynamicStack[T]) PopBatch(n int64) ([]T, bool) {
 	if len(s.buffer) == 0 {
 		return nil, false
 	}
-	newSize := max(int64(len(s.buffer)) - n, 0)
+	newSize := max(int64(len(s.buffer))-n, 0)
 	removed := s.buffer[newSize:]
 	s.buffer = s.buffer[:newSize]
 	return removed, true

@@ -104,12 +104,12 @@ func (wp *WorkerPool) work() {
 		select {
 		case <-wp.ctx.Done():
 			wp.stopOnce.Do(func() {
-				wp.stop()
+				_ = wp.stop()
 			})
 			return
 		default:
 			if wp.queue.Size() == 0 {
-				wp.queue.WaitTillNotEmpty(0)
+				_ = wp.queue.WaitTillNotEmpty(0)
 				continue
 			}
 			tasks, ok := wp.queue.PopN(wp.opt.BatchSize)
@@ -166,7 +166,5 @@ func (wp *WorkerPool) Push(t Task) error {
 		return errors.New("can't push in canceled worker pool")
 	}
 
-	wp.queue.Push(t)
-
-	return nil
+	return wp.queue.Push(t)
 }

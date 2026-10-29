@@ -17,7 +17,7 @@ const (
 type sequence struct {
 	Value atomic.Int64
 	// Padding to prevent false sharing on cache lines
-	_padding [56]byte
+	_ [56]byte
 }
 
 // Defines an interface for waiting on sequence values.
@@ -27,7 +27,7 @@ type seqWaiter interface {
 }
 
 // Implements a yielding wait strategy that sleeps briefly between checks.
-type yieldSeqWait struct{
+type yieldSeqWait struct {
 	waitFor time.Duration
 }
 
@@ -54,7 +54,6 @@ type Disruptor[T any] struct {
 	closed     atomic.Bool
 	done       chan struct{}
 }
-
 
 type DisruptorConfig struct {
 	// Determines how often Consumer will wake up and check for updates.
@@ -181,10 +180,10 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 //go:norace
 func (d *Disruptor[T]) Consume(handler func(T)) error {
 	if d.closed.Load() {
-		return fmt.Errorf("Can't start canceled Disruptor")
+		return fmt.Errorf("can't start canceled Disruptor")
 	}
 
-	var claimed int64 = d.reader.Value.Load() + 1
+	claimed := d.reader.Value.Load() + 1
 	closed := false
 
 	for {

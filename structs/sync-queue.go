@@ -37,7 +37,7 @@ func (q *SyncQueue[T]) Push(v T) error {
 
 	if q.sizeLimit > 0 && len(q.elems)-q.head >= q.sizeLimit {
 		q.mut.Unlock()
-		return errors.New("Queue size exceeded")
+		return errors.New("queue size exceeded")
 	}
 
 	wasEmpty := len(q.elems) == q.head

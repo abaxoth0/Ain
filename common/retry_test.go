@@ -340,7 +340,9 @@ func TestRetry_JitterPreventsSynchronization(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			Retry(fn, config)
+			if err := Retry(fn, config); err == nil {
+				t.Error("Expected retry to fail")
+			}
 		}()
 	}
 
@@ -424,7 +426,9 @@ func BenchmarkRetry_Success(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Retry(fn, config)
+		if err := Retry(fn, config); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -454,6 +458,8 @@ func BenchmarkRetry_WithRetries(b *testing.B) {
 		mu.Lock()
 		callCount = 0 // Reset for each iteration
 		mu.Unlock()
-		Retry(fn, config)
+		if err := Retry(fn, config); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

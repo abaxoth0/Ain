@@ -206,7 +206,9 @@ func TestWorkerPoolPush(t *testing.T) {
 	t.Run("push to canceled pool", func(t *testing.T) {
 		wp2 := NewWorkerPool(ctx, nil)
 		wp2.Start(1)
-		wp2.Cancel()
+		if err := wp2.Cancel(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		task := &mockTask{id: 1}
 		err := wp2.Push(task)
@@ -388,7 +390,9 @@ func TestWorkerPoolIsCanceled(t *testing.T) {
 
 	t.Run("canceled after cancel", func(t *testing.T) {
 		wp.Start(1)
-		wp.Cancel()
+		if err := wp.Cancel(); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
 
 		if !wp.IsCanceled() {
 			t.Error("Pool should be canceled after cancel")
