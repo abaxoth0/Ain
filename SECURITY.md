@@ -55,10 +55,11 @@ Other implementation limits relevant to callers:
 - WorkerPool cancellation rejects new work and drains accepted tasks. A timeout
   limits the caller's wait; it cannot interrupt a running task. Keep task resources
   valid until Done closes or Wait succeeds, including after parent cancellation.
-- FileLogger consumer startup can race immediate shutdown, and failed shutdown
-  cannot currently be retried to complete cleanup. Serialization failures
-  discard entries, write errors are ignored, and shutdown does not establish
-  durable delivery. Fatal logging exits without waiting for file output.
+- FileLogger joins consumer and fallback writers before syncing and closing its
+  output. A timed-out Stop leaves active writers' output open while cleanup
+  continues; retry Stop or observe Done for completion. Serialization failures
+  still discard entries and write errors are ignored. Fatal logging exits without
+  waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global
   well-known metadata property registry require caller coordination.
 - Retry runs callbacks synchronously and stops at its attempt limit. It has no

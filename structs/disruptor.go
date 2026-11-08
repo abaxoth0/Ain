@@ -164,8 +164,17 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 // Consume blocks, calls handler synchronously, and drains accepted entries on Close.
 // It returns an error if already closed. Only one consumer may be used.
 func (d *Disruptor[T]) Consume(handler func(T)) error {
+	return d.ConsumeWithReady(handler, nil)
+}
+
+// ConsumeWithReady signals readiness after entering the consumer, before processing entries.
+// ready may be nil; otherwise it must return promptly. Only one consumer may be used.
+func (d *Disruptor[T]) ConsumeWithReady(handler func(T), ready func()) error {
 	if d.writer.Value.Load()&disruptorClosed != 0 {
 		return fmt.Errorf("can't start canceled Disruptor")
+	}
+	if ready != nil {
+		ready()
 	}
 
 	reader := d.reader.Value.Load()

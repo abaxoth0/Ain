@@ -135,6 +135,23 @@ func TestDisruptorPublishDoesNotAllocate(t *testing.T) {
 	}
 }
 
+func TestDisruptorConsumerReadiness(t *testing.T) {
+	d := NewDisruptor[int](nil)
+	ready, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := d.ConsumeWithReady(func(int) { t.Error("unexpected payload") }, func() { close(ready) }); err != nil {
+			t.Error(err)
+		}
+	}()
+	waitDisruptorSignal(t, ready)
+	d.Close()
+	waitDisruptorSignal(t, done)
+	if err := d.ConsumeWithReady(func(int) {}, func() { t.Error("closed consumer reported readiness") }); err == nil {
+		t.Error("closed consumer started successfully")
+	}
+}
+
 func waitDisruptorSignal(t *testing.T, done <-chan struct{}) {
 	t.Helper()
 	select {

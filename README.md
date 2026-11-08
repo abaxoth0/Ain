@@ -74,6 +74,9 @@ after the handler returns. A paused publisher can delay ordered consumption and
 shutdown draining, while other publishers can fill remaining capacity. Keep
 referenced payload data immutable while it may be in use. Race instrumentation
 is enabled for both publication and consumption.
+`ConsumeWithReady(handler, ready)` invokes an optional readiness callback after
+entering the consumer and before processing records. It does not call the
+callback if the buffer was already closed; the callback must return promptly.
 
 ### `structs`: SyncQueue
 
@@ -238,14 +241,22 @@ per line. `FilePerm` defaults to `0644` for regular files. `DirPerm` defaults to
 modes are subject to the process umask on POSIX systems. For private logs, set
 `FilePerm: 0600` and, if desired, `DirPerm: 0700`.
 
-Treat a `FileLogger` as a single-use instance: `Stop` closes its ring buffer and
-file, and `Start` does not recreate them. Stop producers before shutdown and
-serialize lifecycle calls. `Stop(true)` attempts to drain, sync, and close the
-file, but consumer startup and shutdown recovery remain unreliable. An immediate
-Start/log/Stop sequence can time out before the consumer starts, and a failed
-Stop cannot currently be retried to complete cleanup. Serialization
-failures discard entries and write errors are ignored; neither `Log` nor a
-successful `Stop` guarantees durable delivery. Overflow uses a worker pool and
+Treat a `FileLogger` as a single-use instance. Start establishes consumer
+readiness before returning, so immediate Start/log/Stop is supported. Entries may
+be queued before Start; processing requires Init followed by Start. Stop closes
+admission, drains both the ring consumer and fallback workers, then syncs and
+closes their output. Calls arriving after shutdown starts are rejected.
+
+`StopTimeout` bounds each Stop caller's wait, including in non-strict mode. A
+timeout wraps `errs.StatusTimeout`; cleanup continues while the file remains open
+for active writers. A later Stop can wait again, and `Done()` closes only after
+writers exit and cleanup finishes. Completed Stop calls return the retained
+cleanup result without repeating sync or close. Strict Stop additionally reports
+sync errors; sync failure does not skip closing the output. Start cannot restart
+a stopping or stopped instance.
+
+Serialization failures still discard entries and write errors are ignored;
+neither Log nor successful Stop guarantees durable delivery. Overflow uses a worker pool and
 can reorder entries. Configure forwarding before logging; forwarding changes
 are not synchronized. Forwarded entries bypass the target's filtering and
 critical-level side effects. Entries and their metadata are shared by reference;
