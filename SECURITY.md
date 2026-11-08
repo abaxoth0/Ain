@@ -57,8 +57,10 @@ Other implementation limits relevant to callers:
   valid until Done closes or Wait succeeds, including after parent cancellation.
 - FileLogger joins consumer and fallback writers before syncing and closing its
   output. A timed-out Stop leaves active writers' output open while cleanup
-  continues; retry Stop or observe Done for completion. Serialization failures
-  still discard entries and write errors are ignored. Fatal logging exits without
+  continues; retry Stop or observe Done for completion. Err retains failure counts
+  and first causes; Errors provides bounded, nonblocking notifications. Strict
+  Stop reports processing and output failures. Failed records are not retried,
+  and partial writes may leave incomplete records. Fatal logging exits without
   waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global
   well-known metadata property registry require caller coordination.

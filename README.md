@@ -252,12 +252,22 @@ timeout wraps `errs.StatusTimeout`; cleanup continues while the file remains ope
 for active writers. A later Stop can wait again, and `Done()` closes only after
 writers exit and cleanup finishes. Completed Stop calls return the retained
 cleanup result without repeating sync or close. Strict Stop additionally reports
-sync errors; sync failure does not skip closing the output. Start cannot restart
+processing and sync errors; sync failure does not skip closing the output. Start cannot restart
 a stopping or stopped instance.
 
-Serialization failures still discard entries and write errors are ignored;
-neither Log nor successful Stop guarantees durable delivery. Overflow uses a worker pool and
-can reorder entries. Configure forwarding before logging; forwarding changes
+`Err()` reports a snapshot of failure counts and the first cause for each stage:
+admission, serialization, writing, consumer execution, sync, and close. This state
+uses bounded memory. `Errors()` provides up to 64 buffered notifications without
+blocking processing; notifications can be dropped when full, while Err retains
+the counts and first causes. The channel closes when cleanup completes. Log calls
+rejected after completion still update Err. Strict Stop includes these failures;
+non-strict Stop reports incomplete shutdown, consumer errors, and close errors.
+A successful strict Stop means admitted records were processed, written in full,
+and output sync/close succeeded. Stop cannot protect against later disk failure.
+
+Failed records are not retried; a partial write may leave an incomplete record.
+Log returns no delivery status, so observe Errors/Err and check strict Stop.
+Overflow uses a worker pool and can reorder entries. Configure forwarding before logging; forwarding changes
 are not synchronized. Forwarded entries bypass the target's filtering and
 critical-level side effects. Entries and their metadata are shared by reference;
 keep them immutable while logging is in progress.

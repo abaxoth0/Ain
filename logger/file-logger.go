@@ -92,6 +92,10 @@ type fileLoggerOutput interface {
 // Configure forwarding before logging and keep entries immutable while they may be in use.
 type FileLogger struct {
 	mu           sync.RWMutex
+	errMu        sync.Mutex
+	failures     [fileLoggerFailureStages]fileLoggerFailure
+	errorEvents  chan error
+	errorsClosed bool
 	state        fileLoggerState
 	config       *FileLoggerConfig
 	isInit       bool
@@ -100,7 +104,6 @@ type FileLogger struct {
 	consumerDone chan struct{}
 	consumerErr  error
 	cleanupErr   error
-	syncErr      error
 	buffer       *structs.Disruptor[*LogEntry]
 	fallback     *structs.WorkerPool
 	output       fileLoggerOutput
@@ -118,6 +121,7 @@ func NewFileLogger(config *FileLoggerConfig) (*FileLogger, error) {
 	config.fillEmptySettings()
 
 	logger := &FileLogger{
+		errorEvents:  make(chan error, 64),
 		done:         make(chan struct{}),
 		consumerDone: make(chan struct{}),
 		buffer:       structs.NewDisruptor[*LogEntry](nil),
@@ -197,6 +201,7 @@ func (l *FileLogger) Start() error {
 	go func() {
 		defer close(l.consumerDone)
 		l.consumerErr = l.buffer.ConsumeWithReady(l.handler, func() { close(ready) })
+		l.recordError(fileLoggerConsumer, l.consumerErr)
 	}()
 	select {
 	case <-ready:
@@ -212,7 +217,7 @@ func (l *FileLogger) Start() error {
 
 // Stop closes admission and waits up to StopTimeout for writers and safe cleanup.
 // Timeout wraps errs.StatusTimeout, even in non-strict mode; cleanup continues afterward.
-// Later Stop calls may wait again. strict additionally reports sync errors.
+// Later Stop calls may wait again. strict additionally reports processing and sync errors.
 func (l *FileLogger) Stop(strict bool) error {
 	l.mu.Lock()
 	if l.state == fileLoggerCreated {
@@ -255,20 +260,25 @@ func (l *FileLogger) finishStop() {
 		l.cleanupErr = fmt.Errorf("file logger consumer: %w", l.consumerErr)
 	}
 	if err := l.output.Sync(); err != nil {
-		l.syncErr = fmt.Errorf("sync log file: %w", err)
+		l.recordError(fileLoggerSync, err)
 	}
 	if err := l.output.Close(); err != nil {
 		l.cleanupErr = errors.Join(l.cleanupErr, fmt.Errorf("close log file: %w", err))
+		l.recordError(fileLoggerClose, err)
 	}
 	l.mu.Lock()
 	l.state = fileLoggerStopped
+	l.errMu.Lock()
+	l.errorsClosed = true
+	close(l.errorEvents)
+	l.errMu.Unlock()
 	close(l.done)
 	l.mu.Unlock()
 }
 
 func (l *FileLogger) stopResult(strict bool) error {
 	if strict {
-		return errors.Join(l.cleanupErr, l.syncErr)
+		return l.Err()
 	}
 	return l.cleanupErr
 }
@@ -285,26 +295,28 @@ func (l *FileLogger) handler(entry *LogEntry) {
 	stream.Reset()
 
 	if err := stream.WriteVal(entry); err != nil {
-		// TODO:
-		// Need to somehow handle failed logs commits, cuz currently they are just loss.
-		// (Push to fallback? Retry queue/buffer?)
+		l.recordError(fileLoggerSerialization, err)
 		return
 	}
 
-	// Write directly to the file, bypassing log.Logger formatting.
-	_, _ = l.output.Write(append(stream.Buffer(), '\n'))
+	data := append(stream.Buffer(), '\n')
+	n, err := l.output.Write(data)
+	if err == nil && n != len(data) {
+		err = io.ErrShortWrite
+	}
+	l.recordError(fileLoggerWrite, err)
 }
 
 func (l *FileLogger) log(entry *LogEntry) {
 	l.mu.RLock()
-	defer l.mu.RUnlock()
+	var err error
 	if l.state == fileLoggerStopping || l.state == fileLoggerStopped {
-		return
+		err = errors.New("logger is stopping or stopped")
+	} else if !l.buffer.Publish(entry) {
+		err = l.fallback.Push(l.taskProducer(entry))
 	}
-	if ok := l.buffer.Publish(entry); ok {
-		return
-	}
-	_ = l.fallback.Push(l.taskProducer(entry))
+	l.recordError(fileLoggerAdmission, err)
+	l.mu.RUnlock()
 }
 
 func (l *FileLogger) Log(entry *LogEntry) {

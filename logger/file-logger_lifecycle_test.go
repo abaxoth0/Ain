@@ -208,3 +208,86 @@ func TestFileLoggerIdleShutdownAndRestartRejection(t *testing.T) {
 		}
 	}
 }
+
+type gatedFileOutput struct {
+	fileLoggerOutput
+	stage string
+	gate  *fileLoggerWriteGate
+}
+
+func (o *gatedFileOutput) wait(stage string) {
+	if o.stage == stage {
+		o.gate.entered <- struct{}{}
+		<-o.gate.release
+	}
+}
+
+func (o *gatedFileOutput) Write(data []byte) (int, error) {
+	o.wait("write")
+	return o.fileLoggerOutput.Write(data)
+}
+
+func (o *gatedFileOutput) Sync() error {
+	o.wait("sync")
+	return o.fileLoggerOutput.Sync()
+}
+
+func (o *gatedFileOutput) Close() error {
+	o.wait("close")
+	return o.fileLoggerOutput.Close()
+}
+
+func TestFileLoggerTimeoutWhileOutputBlocked(t *testing.T) {
+	for _, stage := range []string{"write", "sync", "close"} {
+		t.Run(stage, func(t *testing.T) {
+			gate := newFileLoggerWriteGate()
+			defer gate.unblock()
+			l, err := NewFileLogger(&FileLoggerConfig{Path: t.TempDir(), StopTimeout: 20 * time.Millisecond})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := l.Init(); err != nil {
+				t.Fatal(err)
+			}
+			cleanupFileLogger(t, l)
+			l.output = &gatedFileOutput{l.output, stage, gate}
+			if err := l.Start(); err != nil {
+				t.Fatal(err)
+			}
+			NewSource("output", l).Info("payload-0", nil)
+			result := make(chan error, 1)
+			go func() { result <- l.Stop(false) }()
+			select {
+			case <-gate.entered:
+			case <-time.After(2 * time.Second):
+				t.Fatal("output did not reach blocked operation")
+			}
+			select {
+			case err := <-result:
+				if !errors.Is(err, errs.StatusTimeout) {
+					t.Errorf("Stop: %v", err)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("blocked output made Stop unbounded")
+			}
+			select {
+			case <-l.Done():
+				t.Error("cleanup reported completion with output blocked")
+			default:
+			}
+			if _, err := l.logFile.Stat(); err != nil {
+				t.Errorf("closed active output: %v", err)
+			}
+			gate.unblock()
+			select {
+			case <-l.Done():
+			case <-time.After(2 * time.Second):
+				t.Fatal("cleanup did not finish after releasing output")
+			}
+			if err := l.Stop(true); err != nil {
+				t.Fatal(err)
+			}
+			assertFileLoggerPayloads(t, l.logFile.Name(), 1)
+		})
+	}
+}

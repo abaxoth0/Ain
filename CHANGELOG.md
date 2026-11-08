@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Expose FileLogger admission, serialization, write, and cleanup failures through Err/Errors and strict Stop, including short writes.
+
 - Synchronize FileLogger consumer startup, join every writer before closing output, and allow shutdown cleanup to finish after timeouts or sync errors.
 - Coordinate WorkerPool admission and parent cancellation, wake idle workers, join all accepted work on successful shutdown, and expose completion after cancellation timeouts.
 - Make queue timeouts reliable, add context-aware waits, notify waiters after rollback and flush, and preserve zero-valued rollback elements.
