@@ -5,6 +5,7 @@ import "github.com/abaxoth0/Ain/structs"
 // Wrapper for logger L.
 // Strictly bound to the single logger's source.
 // Provides more convenient and readable methods for creating logs.
+// FileLogger sources use its configured application identity; others use defaults.
 type Source[L Logger] struct {
 	logger L
 	src    string
@@ -18,7 +19,11 @@ func NewSource[L Logger](src string, logger L) *Source[L] {
 }
 
 func (s *Source[L]) log(level logLevel, msg string, err string, meta structs.Meta) {
-	entry := NewLogEntry(level, s.src, msg, err, meta)
+	var config *LoggerConfig
+	if provider, ok := any(s.logger).(interface{ entryConfig() *LoggerConfig }); ok {
+		config = provider.entryConfig()
+	}
+	entry := NewLogEntryWithConfig(level, s.src, msg, err, meta, config)
 	s.logger.Log(&entry)
 }
 

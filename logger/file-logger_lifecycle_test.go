@@ -2,6 +2,7 @@ package logger
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/abaxoth0/Ain/errs"
+	"github.com/abaxoth0/Ain/structs"
 )
 
 func cleanupFileLogger(t *testing.T, l *FileLogger) {
@@ -290,4 +292,103 @@ func TestFileLoggerTimeoutWhileOutputBlocked(t *testing.T) {
 			assertFileLoggerPayloads(t, l.logFile.Name(), 1)
 		})
 	}
+}
+
+func TestFileLoggerStartDoesNotWaitForQueuedSerialization(t *testing.T) {
+	gate := newFileLoggerWriteGate()
+	defer gate.unblock()
+	l, err := NewFileLogger(&FileLoggerConfig{
+		Path: t.TempDir(),
+		SerializerProducer: func() Serializer {
+			return &gatedJSONSerializer{NewJSONSerializer(), map[string]*fileLoggerWriteGate{"payload-0": gate}}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupFileLogger(t, l)
+	NewSource("queued", l).Info("payload-0", nil)
+	if err := l.Init(); err != nil {
+		t.Fatal(err)
+	}
+	result := make(chan error, 1)
+	go func() { result <- l.Start() }()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Start waited for queued serialization")
+	}
+	select {
+	case <-gate.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("queued record did not reach consumer")
+	}
+	gate.unblock()
+	if err := l.Stop(true); err != nil {
+		t.Fatal(err)
+	}
+	assertFileLoggerPayloads(t, l.logFile.Name(), 1)
+}
+
+func TestFileLoggerTimeoutKeepsFallbackOutputOpen(t *testing.T) {
+	const total = structs.MinBufferSize
+	ring, overflow := newFileLoggerWriteGate(), newFileLoggerWriteGate()
+	defer ring.unblock()
+	defer overflow.unblock()
+	gates := map[string]*fileLoggerWriteGate{"payload-0": ring, "payload-63": overflow}
+	l, err := NewFileLogger(&FileLoggerConfig{
+		Path: t.TempDir(), FallbackWorkers: 1, FallbackBatchSize: 1, StopTimeout: 20 * time.Millisecond,
+		SerializerProducer: func() Serializer { return &gatedJSONSerializer{NewJSONSerializer(), gates} },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.buffer, err = structs.NewDisruptorWithSize[*LogEntry](total, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Init(); err != nil {
+		t.Fatal(err)
+	}
+	cleanupFileLogger(t, l)
+	if err := l.Start(); err != nil {
+		t.Fatal(err)
+	}
+	source := NewSource("fallback-timeout", l)
+	source.Info("payload-0", nil)
+	select {
+	case <-ring.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("ring consumer did not start")
+	}
+	for id := 1; id < total; id++ {
+		source.Info(fmt.Sprintf("payload-%d", id), nil)
+	}
+	select {
+	case <-overflow.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("fallback writer did not start")
+	}
+	ring.unblock()
+	for range 2 {
+		if err := l.Stop(false); !errors.Is(err, errs.StatusTimeout) {
+			t.Fatalf("Stop: %v, want timeout", err)
+		}
+		if _, err := l.logFile.Stat(); err != nil {
+			t.Fatalf("closed active fallback output: %v", err)
+		}
+	}
+	overflow.unblock()
+	select {
+	case <-l.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("cleanup did not finish after fallback release")
+	}
+	if err := l.Stop(true); err != nil {
+		t.Fatal(err)
+	}
+	assertFileLoggerPayloads(t, l.logFile.Name(), total)
 }

@@ -241,6 +241,13 @@ per line. `FilePerm` defaults to `0644` for regular files. `DirPerm` defaults to
 modes are subject to the process umask on POSIX systems. For private logs, set
 `FilePerm: 0600` and, if desired, `DirPerm: 0700`.
 
+`NewSource` uses the wrapped FileLogger's application name and instance when
+constructing entries, including entries queued before Start. Other loggers use
+the default identity. `NewLogEntry` keeps the default identity;
+`NewLogEntryWithConfig` uses the supplied identity. Logging and forwarding retain
+an entry's existing service and instance, even when the destination has different
+settings or the entry's identity fields are empty.
+
 Treat a `FileLogger` as a single-use instance. Start establishes consumer
 readiness before returning, so immediate Start/log/Stop is supported. Entries may
 be queued before Start; processing requires Init followed by Start. Stop closes

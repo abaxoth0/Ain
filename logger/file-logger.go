@@ -331,6 +331,10 @@ func (l *FileLogger) Log(entry *LogEntry) {
 	}
 }
 
+func (l *FileLogger) entryConfig() *LoggerConfig {
+	return l.config.LoggerConfig
+}
+
 func (l *FileLogger) AddForwarding(logger Logger) error {
 	if logger == nil {
 		return errors.New("received nil instead of logger")
