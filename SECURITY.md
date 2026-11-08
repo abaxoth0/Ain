@@ -40,9 +40,11 @@ Since this is a personal utility library (not a professional-oriented library), 
 
 ### Concurrency and lifecycle limits
 
-Disruptor serializes publishers and commits each slot before advancing its
-atomic writer cursor. Close coordinates with publishers, and a running consumer
-drains accepted entries before returning. Only one consumer is supported. Keep
+Disruptor uses CAS to reserve slots and per-slot readiness sequences to publish
+completed payloads without locks or per-publication allocations. Close atomically
+stops reservations, and a running consumer drains them before returning. A paused
+publisher can delay ordered consumption and draining; Close itself does not wait
+for publishers or the consumer. Only one consumer is supported. Keep
 referenced payloads immutable while they may be in use. Publication and
 consumption have race instrumentation enabled; treat race reports as findings
 to investigate.

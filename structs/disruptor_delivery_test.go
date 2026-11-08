@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -11,6 +12,127 @@ import (
 type disruptorPayload struct {
 	ID   int
 	Data [128]int
+}
+
+type observingSeqWaiter struct {
+	seqWaiter
+	waiting chan struct{}
+	once    sync.Once
+}
+
+func (w *observingSeqWaiter) WaitFor(seq uint64, cursor *atomic.Uint64) {
+	w.once.Do(func() { close(w.waiting) })
+	w.seqWaiter.WaitFor(seq, cursor)
+}
+
+func TestDisruptorPendingPublication(t *testing.T) {
+	d, err := NewDisruptorWithSize[int](MinBufferSize, &DisruptorConfig{IdleCheckInterval: time.Nanosecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Pause the first publisher between reservation and payload publication.
+	d.writer.Value.Store(1)
+	var releaseOnce sync.Once
+	release := func() {
+		releaseOnce.Do(func() {
+			d.buffer[0] = 1
+			d.available[0].Store(1)
+		})
+	}
+	defer release()
+	published := make(chan bool, 1)
+	go func() { published <- d.Publish(2) }()
+	select {
+	case ok := <-published:
+		if !ok {
+			t.Fatal("later publisher was rejected despite available capacity")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("later publisher waited for an earlier reservation")
+	}
+	waiting, consumed := make(chan struct{}), make(chan struct{})
+	d.waiter = &observingSeqWaiter{seqWaiter: d.waiter, waiting: waiting}
+	var entries []int
+	go func() {
+		defer close(consumed)
+		if err := d.Consume(func(value int) { entries = append(entries, value) }); err != nil {
+			t.Error(err)
+		}
+	}()
+	waitDisruptorSignal(t, waiting)
+	closed := make(chan struct{})
+	go func() {
+		d.Close()
+		close(closed)
+	}()
+	waitDisruptorSignal(t, closed)
+	if d.IsEmpty() || d.Publish(3) {
+		t.Error("shutdown lost a reservation or accepted another entry")
+	}
+	select {
+	case <-consumed:
+		t.Fatal("consumer exited before the reserved payload was ready")
+	default:
+	}
+	release()
+	waitDisruptorSignal(t, consumed)
+	if len(entries) != 2 || entries[0] != 1 || entries[1] != 2 {
+		t.Fatalf("delivered %v, want [1 2]", entries)
+	}
+	if !d.IsEmpty() {
+		t.Error("shutdown did not drain all reservations")
+	}
+}
+
+func TestDisruptorSequenceRollover(t *testing.T) {
+	d, err := NewDisruptorWithSize[int](MinBufferSize, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := disruptorSequenceMask - 2
+	d.writer.Value.Store(start)
+	d.reader.Value.Store(start)
+	for offset := range MinBufferSize {
+		seq := (start - uint64(offset)) & disruptorSequenceMask
+		d.available[(seq-1)&d.bufferMask].Store(seq)
+	}
+	if !d.Publish(1) {
+		t.Fatal("could not publish before sequence rollover")
+	}
+	count := 0
+	if err := d.Consume(func(value int) {
+		count++
+		if value != count {
+			t.Errorf("received %d, want %d", value, count)
+		}
+		if count == MinBufferSize*3 {
+			d.Close()
+		} else if !d.Publish(count + 1) {
+			t.Error("publication rejected during rollover")
+			d.Close()
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if count != MinBufferSize*3 || !d.IsEmpty() {
+		t.Fatalf("drained %d entries across rollover, empty=%v", count, d.IsEmpty())
+	}
+}
+
+func TestDisruptorPublishDoesNotAllocate(t *testing.T) {
+	d, err := NewDisruptorWithSize[disruptorPayload](2048, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	allocs := testing.AllocsPerRun(1000, func() {
+		if !d.Publish(disruptorPayload{ID: 1}) {
+			t.Fatal("publication unexpectedly rejected")
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("Publish allocated %g objects per call", allocs)
+	}
 }
 
 func waitDisruptorSignal(t *testing.T, done <-chan struct{}) {

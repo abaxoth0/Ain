@@ -28,8 +28,9 @@ are described alongside each example; see also [SECURITY.md](SECURITY.md).
 
 ### `structs`: Disruptor
 
-Disruptor uses a preallocated ring buffer, serialized publishers, and atomic
-cursors. It supports multiple concurrent publishers and one consumer. Pass `nil` to
+Disruptor uses a preallocated ring buffer, atomic reservation cursors, and per-slot
+readiness sequences. Publication is lock-free and allocation-free, supporting
+multiple concurrent publishers and one consumer. Pass `nil` to
 `NewDisruptor[T](conf)` for the default 65,536-slot buffer and 10 ms idle check
 interval. `NewDisruptorWithSize[T](size, conf)` returns a buffer and an error;
 `size` must be a power of two and at least 64. The fullness check leaves one slot
@@ -65,9 +66,12 @@ func main() {
 there is no coordination between multiple `Consume` calls. `Close` signals
 shutdown without waiting, is not idempotent, and prevents subsequent `Consume`
 calls. An already running consumer drains all accepted entries before returning;
-wait for `Consume` to return yourself. A publication racing `Close` is either
-committed before shutdown or rejected. Slots become visible only after their
-payloads are written, and are reused only after the handler returns. Keep
+wait for `Consume` to return yourself. A publication racing `Close` either reserves
+its slot before shutdown or is rejected. Close does not wait for in-flight
+publishers; the consumer waits for their payloads before completing its drain.
+Slots become readable only after their payloads are written, and are reused only
+after the handler returns. A paused publisher can delay ordered consumption and
+shutdown draining, while other publishers can fill remaining capacity. Keep
 referenced payload data immutable while it may be in use. Race instrumentation
 is enabled for both publication and consumption.
 
