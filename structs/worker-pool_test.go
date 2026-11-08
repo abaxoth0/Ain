@@ -70,7 +70,7 @@ func TestNewWorkerPool(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("with default options", func(t *testing.T) {
-		wp := NewWorkerPool(ctx, nil)
+		wp := newTestWorkerPool(t, ctx, nil)
 
 		if wp == nil {
 			t.Fatal("WorkerPool should not be nil")
@@ -91,7 +91,7 @@ func TestNewWorkerPool(t *testing.T) {
 			StopTimeout: 2 * time.Second,
 		}
 
-		wp := NewWorkerPool(ctx, opts)
+		wp := newTestWorkerPool(t, ctx, opts)
 
 		if wp.opt.BatchSize != 5 {
 			t.Errorf("Expected batch size 5, got %d", wp.opt.BatchSize)
@@ -108,7 +108,7 @@ func TestNewWorkerPool(t *testing.T) {
 			StopTimeout: -1 * time.Second, // Invalid
 		}
 
-		wp := NewWorkerPool(ctx, opts)
+		wp := newTestWorkerPool(t, ctx, opts)
 
 		// Should fall back to defaults
 		if wp.opt.BatchSize != workerPoolDefaultBatchSize {
@@ -123,7 +123,7 @@ func TestNewWorkerPool(t *testing.T) {
 
 func TestWorkerPoolStart(t *testing.T) {
 	ctx := context.Background()
-	wp := NewWorkerPool(ctx, nil)
+	wp := newTestWorkerPool(t, ctx, nil)
 
 	t.Run("start workers", func(t *testing.T) {
 		workerCount := 3
@@ -146,7 +146,7 @@ func TestWorkerPoolStart(t *testing.T) {
 	})
 
 	t.Run("start multiple times should be no-op", func(t *testing.T) {
-		wp2 := NewWorkerPool(ctx, nil)
+		wp2 := newTestWorkerPool(t, ctx, nil)
 		wp2.Start(2)
 		wp2.Start(5) // Should be ignored
 
@@ -167,7 +167,7 @@ func TestWorkerPoolStart(t *testing.T) {
 
 func TestWorkerPoolPush(t *testing.T) {
 	ctx := context.Background()
-	wp := NewWorkerPool(ctx, nil)
+	wp := newTestWorkerPool(t, ctx, nil)
 	wp.Start(1)
 
 	t.Run("push single task", func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestWorkerPoolPush(t *testing.T) {
 	})
 
 	t.Run("push to canceled pool", func(t *testing.T) {
-		wp2 := NewWorkerPool(ctx, nil)
+		wp2 := newTestWorkerPool(t, ctx, nil)
 		wp2.Start(1)
 		if err := wp2.Cancel(); err != nil {
 			t.Errorf("Unexpected error: %v", err)
@@ -226,7 +226,7 @@ func TestWorkerPoolCancel(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("cancel empty pool", func(t *testing.T) {
-		wp := NewWorkerPool(ctx, nil)
+		wp := newTestWorkerPool(t, ctx, nil)
 		wp.Start(1)
 
 		err := wp.Cancel()
@@ -240,7 +240,7 @@ func TestWorkerPoolCancel(t *testing.T) {
 	})
 
 	t.Run("cancel pool with pending tasks", func(t *testing.T) {
-		wp := NewWorkerPool(ctx, &WorkerPoolOptions{
+		wp := newTestWorkerPool(t, ctx, &WorkerPoolOptions{
 			BatchSize:   1,
 			StopTimeout: 100 * time.Millisecond,
 		})
@@ -272,7 +272,7 @@ func TestWorkerPoolCancel(t *testing.T) {
 	})
 
 	t.Run("double cancel should return error", func(t *testing.T) {
-		wp := NewWorkerPool(ctx, nil)
+		wp := newTestWorkerPool(t, ctx, nil)
 		wp.Start(1)
 
 		err := wp.Cancel()
@@ -295,7 +295,7 @@ func TestWorkerPoolBatchProcessing(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("batch size 1", func(t *testing.T) {
-		wp := NewWorkerPool(ctx, &WorkerPoolOptions{
+		wp := newTestWorkerPool(t, ctx, &WorkerPoolOptions{
 			BatchSize: 1,
 		})
 		wp.Start(1)
@@ -319,7 +319,7 @@ func TestWorkerPoolBatchProcessing(t *testing.T) {
 	})
 
 	t.Run("batch size 3", func(t *testing.T) {
-		wp := NewWorkerPool(ctx, &WorkerPoolOptions{
+		wp := newTestWorkerPool(t, ctx, &WorkerPoolOptions{
 			BatchSize: 3,
 		})
 		wp.Start(1)
@@ -345,7 +345,7 @@ func TestWorkerPoolBatchProcessing(t *testing.T) {
 
 func TestWorkerPoolConcurrency(t *testing.T) {
 	ctx := context.Background()
-	wp := NewWorkerPool(ctx, nil)
+	wp := newTestWorkerPool(t, ctx, nil)
 	wp.Start(3)
 
 	t.Run("concurrent pushes", func(t *testing.T) {
@@ -380,7 +380,7 @@ func TestWorkerPoolConcurrency(t *testing.T) {
 
 func TestWorkerPoolIsCanceled(t *testing.T) {
 	ctx := context.Background()
-	wp := NewWorkerPool(ctx, nil)
+	wp := newTestWorkerPool(t, ctx, nil)
 
 	t.Run("initially not canceled", func(t *testing.T) {
 		if wp.IsCanceled() {
@@ -409,7 +409,7 @@ func TestWorkerPoolBugFix(t *testing.T) {
 
 	for _, count := range workerCounts {
 		t.Run(fmt.Sprintf("worker_count_%d", count), func(t *testing.T) {
-			wp := NewWorkerPool(ctx, &WorkerPoolOptions{
+			wp := newTestWorkerPool(t, ctx, &WorkerPoolOptions{
 				BatchSize:   1,
 				StopTimeout: 50 * time.Millisecond,
 			})

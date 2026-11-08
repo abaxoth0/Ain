@@ -185,10 +185,9 @@ func (l *FileLogger) Start() error {
 
 // Stop attempts to drain the ring, cancel fallback work, sync, and close the file.
 // strict reports ring-drain timeout and sync errors instead of ignoring them.
-// Serialization and write errors are not reported, and fallback cancellation
-// does not guarantee that pending writes finished. Stop does not guarantee durable
-// delivery. Stop producers first and serialize lifecycle calls; do not restart
-// this instance after stopping.
+// Serialization and write errors are not reported; consumer startup and shutdown
+// recovery still have limitations. Stop does not guarantee durable delivery.
+// Stop producers first and serialize lifecycle calls; do not restart this instance.
 func (l *FileLogger) Stop(strict bool) error {
 	if !l.isRunning.Load() {
 		return errors.New("logger isn't started, hence can't be stopped")

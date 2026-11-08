@@ -152,11 +152,11 @@ func main() {
 ### `structs`: WorkerPool
 
 Tasks implement `Process()`. `NewWorkerPool(ctx, nil)` defaults to a batch size
-of 1 and a shutdown drain timeout of 1 second. Call `Start` once with a positive
+of 1 and a cancellation wait timeout of 1 second. Call `Start` once with a positive
 worker count; subsequent calls do nothing, even if the first count was zero.
 The queue is unbounded and task execution order is not guaranteed across workers.
 
-Track task completion explicitly when it matters:
+Successful cancellation waits for accepted work:
 
 ```go
 package main
@@ -168,35 +168,43 @@ import (
     "github.com/abaxoth0/Ain/structs"
 )
 
-type task struct{ done chan struct{} }
+type task struct{}
 
 func (t *task) Process() {
-    defer close(t.done)
     fmt.Println("task processed")
 }
 
 func main() {
     pool := structs.NewWorkerPool(context.Background(), nil)
     pool.Start(4)
-    done := make(chan struct{})
-    if err := pool.Push(&task{done: done}); err != nil {
+    if err := pool.Push(&task{}); err != nil {
         panic(err)
     }
-    <-done
     if err := pool.Cancel(); err != nil {
         panic(err)
     }
 }
 ```
 
-`Cancel` marks the pool canceled and signals its context; later `Push` calls
-return errors, and repeated `Cancel` calls return an error. Serialize cancellation
-with producers. Cancellation does not interrupt `Process`, wake workers blocked
-on an empty queue, or join all worker goroutines. Its wait group covers active
-normal batches, not all queued tasks or shutdown draining. `StopTimeout` is
-checked between drain batches and cannot interrupt a blocked task; drain errors
-are discarded. A successful `Cancel` does not guarantee that all tasks finished.
-Canceling the parent context alone does not set `IsCanceled` or reject `Push`.
+Explicit `Cancel` and parent-context cancellation both stop admission, wake idle
+workers, and drain accepted tasks. `IsCanceled` reflects either form of
+cancellation. Push can race cancellation: it either returns an error or accepts a
+task covered by shutdown, including a Push already in progress when the parent
+ends. Worker lifetimes include both normal processing and shutdown draining.
+Successful Cancel means every accepted task finished and all workers exited.
+
+`StopTimeout` bounds how long the first Cancel waits; expiration returns an error
+wrapping `errs.StatusTimeout`. It cannot interrupt Process, and accepted queued
+tasks continue draining in the background after a timeout. Keep resources used by
+tasks valid until `Done()` closes or `Wait(ctx)` returns nil. Wait only observes
+shutdown; its context limits that caller's wait and does not cancel the pool.
+It returns `ctx.Err()` if shutdown is still incomplete when that context ends.
+Completed shutdown takes precedence over a canceled wait context.
+
+The first explicit Cancel can join shutdown initiated by the parent; repeated
+Cancel calls return an error. Push may queue work before Start. If cancellation
+finds queued work without any workers, the pool creates one worker to finish that
+work. Start cannot restart a stopping or stopped pool.
 
 ### `logger`: Logging
 
@@ -233,8 +241,9 @@ modes are subject to the process umask on POSIX systems. For private logs, set
 Treat a `FileLogger` as a single-use instance: `Stop` closes its ring buffer and
 file, and `Start` does not recreate them. Stop producers before shutdown and
 serialize lifecycle calls. `Stop(true)` attempts to drain, sync, and close the
-file, but consumer startup and WorkerPool shutdown remain unreliable. An immediate
-Start/log/Stop sequence can time out before the consumer starts. Serialization
+file, but consumer startup and shutdown recovery remain unreliable. An immediate
+Start/log/Stop sequence can time out before the consumer starts, and a failed
+Stop cannot currently be retried to complete cleanup. Serialization
 failures discard entries and write errors are ignored; neither `Log` nor a
 successful `Stop` guarantees durable delivery. Overflow uses a worker pool and
 can reorder entries. Configure forwarding before logging; forwarding changes

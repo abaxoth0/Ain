@@ -52,10 +52,11 @@ to investigate.
 Other implementation limits relevant to callers:
 
 - Disruptor `Close` is not idempotent and does not join the consumer.
-- WorkerPool cancellation does not wake idle queue waiters or guarantee that
-  queued tasks and drain work have finished. It cannot interrupt a running task.
-- FileLogger consumer startup can race immediate shutdown, and fallback workers
-  inherit the WorkerPool limits. Serialization failures
+- WorkerPool cancellation rejects new work and drains accepted tasks. A timeout
+  limits the caller's wait; it cannot interrupt a running task. Keep task resources
+  valid until Done closes or Wait succeeds, including after parent cancellation.
+- FileLogger consumer startup can race immediate shutdown, and failed shutdown
+  cannot currently be retried to complete cleanup. Serialization failures
   discard entries, write errors are ignored, and shutdown does not establish
   durable delivery. Fatal logging exits without waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global

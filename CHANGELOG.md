@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Coordinate WorkerPool admission and parent cancellation, wake idle workers, join all accepted work on successful shutdown, and expose completion after cancellation timeouts.
 - Make queue timeouts reliable, add context-aware waits, notify waiters after rollback and flush, and preserve zero-valued rollback elements.
 - Create usable log directories with a separate DirPerm setting (default 0755), preserving FilePerm restrictions and existing directory modes.
 - Stop Retry at its attempt limit without further callbacks or a leaked goroutine; execute retries synchronously.
