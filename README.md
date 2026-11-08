@@ -102,11 +102,22 @@ func main() {
 ```
 
 `WaitTillEmpty` and `WaitTillNotEmpty` wait for a condition, with nonpositive
-timeouts meaning no timeout. They do not reserve elements or close the queue.
+timeouts meaning no timeout and expiration returning `errs.StatusTimeout`.
+`WaitTillEmptyContext(ctx)` and `WaitTillNotEmptyContext(ctx)` also observe context
+cancellation and deadlines, returning `context.Canceled` or
+`context.DeadlineExceeded`. If the requested queue condition holds when checked,
+the wait returns nil even if the context has ended. Waits recheck the condition
+under the queue mutex after every wakeup, including cancellation notifications.
+They do not reserve elements or close the queue, so a later Pop can still find
+the queue empty after a successful WaitTillNotEmpty.
+
 `PreserveAndPop` calls two separately locked methods, so it is not an atomic
-transaction. `RollBack` uses the zero value as the absence marker and cannot
-restore a preserved zero value. `UnwrapAndFlush` and `RollBack` do not notify
-condition waiters; avoid relying on them to wake waiting goroutines.
+transaction. The queue holds one preserved value, including zero, false, an empty
+string, or a nil pointer. Preserve on a nonempty queue replaces that value, and
+RollBack restores it to the front at most once. Coordinate preserve/pop/rollback
+sequences with other callers when transaction semantics are needed. RollBack wakes
+nonempty waiters when it restores an empty queue; UnwrapAndFlush wakes empty
+waiters when it removes the remaining elements.
 
 ### `structs`: Stacks
 

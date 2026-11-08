@@ -1,6 +1,7 @@
 package structs
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -10,12 +11,13 @@ import (
 
 // Concurrency-safe first-in-first-out (FIFO) queue.
 type SyncQueue[T comparable] struct {
-	sizeLimit int // 0 = no limit
-	elems     []T
-	head      int // Index of the first element
-	mut       sync.RWMutex
-	cond      *sync.Cond
-	preserved T // Preserved element for rollback operations
+	sizeLimit    int // 0 = no limit
+	elems        []T
+	head         int // Index of the first element
+	mut          sync.RWMutex
+	cond         *sync.Cond
+	preserved    T
+	hasPreserved bool
 }
 
 // Creates a new thread-safe queue with optional size limit.
@@ -34,17 +36,15 @@ func NewSyncQueue[T comparable](sizeLimit int) *SyncQueue[T] {
 // Appends v to the end of queue. Returns error if size limit is exceeded.
 func (q *SyncQueue[T]) Push(v T) error {
 	q.mut.Lock()
+	defer q.mut.Unlock()
 
 	if q.sizeLimit > 0 && len(q.elems)-q.head >= q.sizeLimit {
-		q.mut.Unlock()
 		return errors.New("queue size exceeded")
 	}
 
 	wasEmpty := len(q.elems) == q.head
 
 	q.elems = append(q.elems, v)
-
-	q.mut.Unlock()
 
 	if wasEmpty {
 		q.cond.Broadcast()
@@ -144,18 +144,18 @@ func (q *SyncQueue[T]) Preserve() {
 	}
 
 	q.preserved = q.elems[q.head]
+	q.hasPreserved = true
 }
 
 // Restores the previously preserved element to the front of the queue.
-// The zero value marks absence, so a preserved zero value cannot be restored.
-// RollBack does not notify condition waiters.
+// A preserved value, including the zero value, can be restored once.
 func (q *SyncQueue[T]) RollBack() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
 	var zero T
 
-	if q.preserved == zero {
+	if !q.hasPreserved {
 		return
 	}
 
@@ -163,10 +163,15 @@ func (q *SyncQueue[T]) RollBack() {
 
 	swap[0] = q.preserved
 	q.preserved = zero
+	q.hasPreserved = false
 
+	wasEmpty := len(q.elems) == q.head
 	copy(swap[1:], q.elems[q.head:])
 	q.elems = swap
 	q.head = 0
+	if wasEmpty {
+		q.cond.Broadcast()
+	}
 }
 
 // Preserves the current head element and then pops it from the queue.
@@ -184,84 +189,72 @@ func (q *SyncQueue[T]) Size() int {
 	return l
 }
 
-// Blocks until waitCond returns false or timeout occurs.
-// If timeout <= 0: waits until 'waitCond' returns false.
-// If timeout > 0: waits until either 'waitCond' returns false or timeout is exceeded.
-func (q *SyncQueue[T]) wait(timeout time.Duration, waitCond func() bool) error {
+func (q *SyncQueue[T]) wait(ctx context.Context, waitCond func() bool) error {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	if timeout <= 0 {
-		for waitCond() {
-			q.cond.Wait()
-		}
+	if !waitCond() {
 		return nil
 	}
-
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	for waitCond() {
-		done := make(chan bool)
-
-		go func() {
-			q.cond.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-		case <-timer.C:
-			q.cond.Broadcast()
-			/*
-			   IMPORTANT
-			    Need wait till q.cond.Wait() finish it's work,
-			    cuz it's unlocks mutex while waiting and lock it again before returning,
-			    so if q.cond.Wait() still waits that means mutext is unlocked.
-			    On this state may occur 2 type of erros:
-			    1) If mutex unlocking before returning from this function (which is currently so):
-			       Attempt to unlock a mutex that is already unlocked by q.cond.Wait() will cause panic.
-			    2) If mutex isn't unlocking before returning:
-			       q.cond.Wait() will lock it after finishing it's work and that will cause a deadlock.
-			*/
-			<-done
-			return errs.StatusTimeout
-		}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-
+	if ctx.Done() != nil {
+		// Use the same mutex so cancellation cannot broadcast before Wait registers.
+		stop := context.AfterFunc(ctx, func() {
+			q.mut.Lock()
+			q.cond.Broadcast()
+			q.mut.Unlock()
+		})
+		defer stop()
+	}
+	for waitCond() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		q.cond.Wait()
+	}
 	return nil
+}
+
+func (q *SyncQueue[T]) waitWithTimeout(timeout time.Duration, waitCond func() bool) error {
+	ctx := context.Background()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	err := q.wait(ctx, waitCond)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return errs.StatusTimeout
+	}
+	return err
 }
 
 // Blocks until the queue becomes empty.
 // To disable timeout, set it to <= 0.
 // Returns errs.StatusTimeout if timeout exceeded, nil otherwise.
 func (q *SyncQueue[T]) WaitTillEmpty(timeout time.Duration) error {
-	q.mut.Lock()
-
-	if len(q.elems) == q.head {
-		q.mut.Unlock()
-		return nil
-	}
-
-	q.mut.Unlock()
-
-	return q.wait(timeout, func() bool { return len(q.elems) > q.head })
+	return q.waitWithTimeout(timeout, func() bool { return len(q.elems) > q.head })
 }
 
 // Blocks until the queue contains at least one element.
 // To disable timeout, set it to <= 0.
 // Returns errs.StatusTimeout if timeout exceeded, nil otherwise.
 func (q *SyncQueue[T]) WaitTillNotEmpty(timeout time.Duration) error {
-	q.mut.Lock()
+	return q.waitWithTimeout(timeout, func() bool { return len(q.elems) == q.head })
+}
 
-	if len(q.elems) > q.head {
-		q.mut.Unlock()
-		return nil
-	}
+// WaitTillEmptyContext waits for an empty queue or returns ctx.Err().
+// A satisfied queue condition takes precedence over cancellation.
+func (q *SyncQueue[T]) WaitTillEmptyContext(ctx context.Context) error {
+	return q.wait(ctx, func() bool { return len(q.elems) > q.head })
+}
 
-	q.mut.Unlock()
-
-	return q.wait(timeout, func() bool { return len(q.elems) == q.head })
+// WaitTillNotEmptyContext waits for an element or returns ctx.Err().
+// A satisfied queue condition takes precedence over cancellation; no element is reserved.
+func (q *SyncQueue[T]) WaitTillNotEmptyContext(ctx context.Context) error {
+	return q.wait(ctx, func() bool { return len(q.elems) == q.head })
 }
 
 // Returns a copy of the internal slice containing all current queue elements.
@@ -280,9 +273,9 @@ func (q *SyncQueue[T]) Unwrap() []T {
 
 // Returns a copy of all current queue elements and removes them from the queue.
 // Same as Unwrap, but also deletes all elements in queue.
-// UnwrapAndFlush does not notify condition waiters.
 func (q *SyncQueue[T]) UnwrapAndFlush() []T {
 	q.mut.Lock()
+	defer q.mut.Unlock()
 
 	size := len(q.elems) - q.head
 	r := make([]T, size)
@@ -292,7 +285,9 @@ func (q *SyncQueue[T]) UnwrapAndFlush() []T {
 	q.elems = make([]T, 0, cap(q.elems))
 	q.head = 0
 
-	q.mut.Unlock()
+	if size > 0 {
+		q.cond.Broadcast()
+	}
 
 	return r
 }
