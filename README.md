@@ -128,7 +128,18 @@ waiters when it removes the remaining elements.
 uses an initial capacity of 16 when given a nonpositive capacity. Neither is
 synchronized. Wrap a stack with `NewSyncStack` for mutex protection of individual
 method calls, and access the underlying stack only through that wrapper when
-sharing it.
+sharing it. `NewSyncStack` accepts pointer and value implementations of `Stack`
+and panics for nil implementations, including a nil interface or typed nil.
+
+`PopBatch(n)` returns up to n elements, top first, in the same order as repeated
+`Pop` calls. For example, after pushing `[1, 2, 3]`, `PopBatch(2)` returns `[3, 2]`.
+This changes DynamicStack's previous insertion-order behavior. Returned batches
+have independent slice storage, so later pushes and batch mutations cannot
+change one another, including through SyncStack. Element values are shallow
+copies; referenced objects remain shared. Custom Stack implementations must
+provide the same batch ownership and ordering. For n <= 0, PopBatch removes
+nothing and returns an empty slice with true; a positive n on an empty stack
+returns nil with false.
 
 ```go
 package main

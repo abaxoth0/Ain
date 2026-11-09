@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Return independent DynamicStack batches in top-first order, matching StaticStack and repeated Pop calls, including through SyncStack.
+- Accept valid value implementations in NewSyncStack and consistently reject nil implementations without reflection panics.
 - Use FileLogger application identity for Source entries while preserving explicit and forwarded entry identities.
 - Expose FileLogger admission, serialization, write, and cleanup failures through Err/Errors and strict Stop, including short writes.
 - Synchronize FileLogger consumer startup, join every writer before closing output, and allow shutdown cleanup to finish after timeouts or sync errors.

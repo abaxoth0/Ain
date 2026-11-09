@@ -603,8 +603,8 @@ func TestDynamicStackPopBatch(t *testing.T) {
 		if len(val) != 2 {
 			t.Errorf("Expected 2 elements, got %d", len(val))
 		}
-		if val[0] != "d" || val[1] != "e" {
-			t.Errorf("Expected [d, e], got %v", val)
+		if val[0] != "e" || val[1] != "d" {
+			t.Errorf("Expected [e, d], got %v", val)
 		}
 		if s.Size() != 3 {
 			t.Errorf("Expected size 3, got %d", s.Size())

@@ -19,8 +19,10 @@ type Stack[T any] interface {
 	// Removes top element from the stack.
 	// Returns false if stack is empty.
 	Pop() (T, bool)
-	// Removes n top elements from the stack.
-	// Returns false if stack is empty.
+	// Removes up to n elements in the same order as repeated Pop calls.
+	// The returned slice has independent storage; element values are shallow copies.
+	// For n <= 0, returns an empty slice and true.
+	// For positive n on an empty stack, returns nil and false.
 	PopBatch(n int64) ([]T, bool)
 	// Gets top element from the stack.
 	// Returns false if stack is empty.
@@ -40,9 +42,17 @@ type SyncStack[T any, S Stack[T]] struct {
 	mut   sync.Mutex
 }
 
+// Panics if s is nil, including a typed nil implementation.
 func NewSyncStack[T any, S Stack[T]](s S) *SyncStack[T, S] {
-	if reflect.ValueOf(s).IsNil() {
+	value := reflect.ValueOf(s)
+	if !value.IsValid() {
 		panic("can't create SyncStack from nil")
+	}
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice, reflect.UnsafePointer:
+		if value.IsNil() {
+			panic("can't create SyncStack from nil")
+		}
 	}
 	return &SyncStack[T, S]{
 		stack: s,
@@ -73,8 +83,7 @@ func (s *SyncStack[T, S]) Pop() (T, bool) {
 	return s.stack.Pop()
 }
 
-// Removes n top elements from the stack.
-// Returns false if stack is empty.
+// Removes up to n elements, top first, into an independent slice, as defined by Stack.
 func (s *SyncStack[T, S]) PopBatch(n int64) ([]T, bool) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
@@ -171,8 +180,7 @@ func (s *StaticStack[T]) Pop() (T, bool) {
 	return s.buffer[s.cursor+1], true
 }
 
-// Removes n top elements from the stack.
-// Returns false if stack is empty.
+// Removes up to n elements, top first, into an independent slice, as defined by Stack.
 func (s *StaticStack[T]) PopBatch(n int64) ([]T, bool) {
 	if n <= 0 {
 		return make([]T, 0), true
@@ -269,8 +277,7 @@ func (s *DynamicStack[T]) Pop() (T, bool) {
 	return last, true
 }
 
-// Removes n top elements from the stack.
-// Returns false if stack is empty.
+// Removes up to n elements, top first, into an independent slice, as defined by Stack.
 func (s *DynamicStack[T]) PopBatch(n int64) ([]T, bool) {
 	if n <= 0 {
 		return make([]T, 0), true
@@ -278,9 +285,11 @@ func (s *DynamicStack[T]) PopBatch(n int64) ([]T, bool) {
 	if len(s.buffer) == 0 {
 		return nil, false
 	}
-	newSize := max(int64(len(s.buffer))-n, 0)
-	removed := s.buffer[newSize:]
-	s.buffer = s.buffer[:newSize]
+	removed := make([]T, min(n, int64(len(s.buffer))))
+	for i := range removed {
+		removed[i] = s.buffer[len(s.buffer)-1-i]
+	}
+	s.buffer = s.buffer[:len(s.buffer)-len(removed)]
 	return removed, true
 }
 
