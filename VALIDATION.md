@@ -77,8 +77,9 @@ on the validation date.
 | Linux/amd64, official Go 1.27.3 | Full atomic-coverage race suite, shuffled race stress suite, vet, and build passed |
 | Linux/amd64, installed Go 1.27.3-X:nodwarf5 | Full ordinary/coverage suite, race suite, focused shuffled stress checks, vet, build, and benchmark smoke passed |
 | Linux/386, installed Go toolchain, CGO disabled | Full suite passed natively; execution needed to run outside the sandbox's syscall filter |
-| Windows/amd64, Wine 11.21 | Full suite passed with CGO disabled, then with race/atomic coverage enabled using MinGW and official Go 1.27.3; native Windows results remain pending CI |
+| Windows/amd64, Wine 11.21 | Full suite passed with CGO disabled, then with race/atomic coverage enabled using MinGW and official Go 1.27.3; native Windows results are recorded in the CI row below |
 | macOS/amd64 and macOS/arm64, CGO disabled | All package test binaries cross-compiled; execution and race checks were not run locally |
+| Native GitHub Actions runners: Ubuntu, Windows, macOS | All six race/atomic-coverage jobs passed on Go 1.23.x and stable in the corrected PR #14 run linked below |
 
 POSIX directory/file permission assertions ran without root privileges on Linux.
 The Windows test intentionally omits POSIX mode assertions. After completed
@@ -188,4 +189,8 @@ Local verification after these corrections passed the full race suite at Go
 1.23.0 and 1.27.3, vet, build, five Disruptor race repetitions at GOMAXPROCS 1 and 4,
 all nine workflow tests, the official pinned linter, and gosec with zero findings.
 The Windows race/coverage suite also passed under Wine with official Go 1.27.3.
-Native Windows CI verification remains pending the corrected workflow's next run.
+The [corrected PR #14 run](https://github.com/abaxoth0/Ain/actions/runs/42686445195)
+for code commit `73ee81a` passed all 10 jobs: the six native Ubuntu/Windows/macOS
+race-and-coverage combinations at Go 1.23.x and stable, Lint, Security, Build,
+and Workflows. Native Windows and macOS verification is complete for these
+runner/toolchain combinations.
