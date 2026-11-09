@@ -40,32 +40,39 @@ Since this is a personal utility library (not a professional-oriented library), 
 
 ### Concurrency and lifecycle limits
 
-Atomic cursors alone do not establish that the Disruptor buffer is safe. In
-`Publish`, the writer cursor advances before the slot is assigned. A consumer
-can therefore read an unwritten slot, including when multiple publishers finish
-out of order. There is no coordination between multiple consumers.
-
-`Publish` and `Consume` are marked `//go:norace`. Their buffer accesses are not
-instrumented, so a passing race-detector run cannot validate these paths. The
-previous claim that warnings were harmless false positives was unsupported.
-Treat race reports as findings to investigate, not warnings to dismiss.
+Disruptor uses CAS to reserve slots and per-slot readiness sequences to publish
+completed payloads without locks or per-publication allocations. Close atomically
+stops reservations, and a running consumer drains them before returning. A paused
+publisher can delay ordered consumption and draining; Close itself does not wait
+for publishers or the consumer. Only one consumer is supported. Keep
+referenced payloads immutable while they may be in use. Publication and
+consumption have race instrumentation enabled; treat race reports as findings
+to investigate.
 
 Other implementation limits relevant to callers:
 
 - Disruptor `Close` is not idempotent and does not join the consumer.
-- WorkerPool cancellation does not wake idle queue waiters or guarantee that
-  queued tasks and drain work have finished. It cannot interrupt a running task.
-- FileLogger inherits the Disruptor and WorkerPool limits. Serialization failures
-  discard entries, write errors are ignored, and shutdown does not establish
-  durable delivery. Fatal logging exits without waiting for file output.
+- WorkerPool cancellation rejects new work and drains accepted tasks. A timeout
+  limits the caller's wait; it cannot interrupt a running task. Keep task resources
+  valid until Done closes or Wait succeeds, including after parent cancellation.
+- FileLogger joins consumer and fallback writers before syncing and closing its
+  output. A timed-out Stop leaves active writers' output open while cleanup
+  continues; retry Stop or observe Done for completion. Err retains failure counts
+  and first causes; Errors provides bounded, nonblocking notifications. Strict
+  Stop reports processing and output failures. Failed records are not retried,
+  and partial writes may leave incomplete records. Fatal logging exits without
+  waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global
   well-known metadata property registry require caller coordination.
-- Retry can continue its operation after returning an attempt-limit error and
-  leave a goroutine blocked sending a result. It has no context cancellation.
+- Stack batches own their slice storage, while element values are shallow copies.
+  SyncStack protects individual methods; access its underlying stack through the
+  wrapper and coordinate shared mutable payloads separately.
+- Retry runs callbacks synchronously and stops at its attempt limit. It has no
+  context cancellation and cannot interrupt a running callback.
 
-See [README.md](README.md) for API-specific usage and lifecycle details. These
-limitations require implementation fixes; documentation and passing tests do not
-remove them.
+See [README.md](README.md) for API-specific usage and lifecycle details, and
+[VALIDATION.md](VALIDATION.md) for review regressions and platform verification.
+The remaining contracts above still apply when validation passes.
 
 ### Dependencies and data handling
 
@@ -76,6 +83,9 @@ Ain does not provide telemetry or built-in network clients. FileLogger writes lo
 entries to the configured filesystem path; console loggers write to stdout or
 stderr. Log contents, error strings, and metadata are caller-supplied and may
 contain sensitive data. Choose file permissions and log destinations accordingly.
+FileLogger uses separate defaults of `0644` for log files and `0755` for new
+directories, subject to the process umask on POSIX systems. Set `FilePerm` and
+`DirPerm` to restrict access; existing directories retain their permissions.
 Callbacks supplied to Retry and WorkerPool execute application code and may have
 network, filesystem, or other side effects.
 

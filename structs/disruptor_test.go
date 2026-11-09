@@ -13,13 +13,13 @@ func TestNewDisruptor(t *testing.T) {
 			t.Fatal("Disruptor should not be nil")
 		}
 
-		if d.writer.Value.Load() != -1 {
-			t.Errorf("Expected writer to start at -1, got %d", d.writer.Value.Load())
+		if d.writer.Value.Load() != 0 {
+			t.Errorf("Expected writer to start at 0, got %d", d.writer.Value.Load())
 		}
-		if d.reader.Value.Load() != -1 {
-			t.Errorf("Expected reader to start at -1, got %d", d.reader.Value.Load())
+		if d.reader.Value.Load() != 0 {
+			t.Errorf("Expected reader to start at 0, got %d", d.reader.Value.Load())
 		}
-		if d.closed.Load() {
+		if d.writer.Value.Load()&disruptorClosed != 0 {
 			t.Error("Disruptor should not be closed initially")
 		}
 	})
@@ -49,8 +49,8 @@ func TestDisruptorPublish(t *testing.T) {
 			t.Error("Publish should succeed")
 		}
 
-		if d.writer.Value.Load() != 0 {
-			t.Errorf("Expected writer at 0, got %d", d.writer.Value.Load())
+		if d.writer.Value.Load() != 1 {
+			t.Errorf("Expected writer at 1, got %d", d.writer.Value.Load())
 		}
 	})
 
@@ -65,7 +65,7 @@ func TestDisruptorPublish(t *testing.T) {
 			}
 		}
 
-		expectedWriter := int64(numEntries - 1)
+		expectedWriter := uint64(numEntries)
 		if d.writer.Value.Load() != expectedWriter {
 			t.Errorf("Expected writer at %d, got %d", expectedWriter, d.writer.Value.Load())
 		}
@@ -257,7 +257,7 @@ func TestDisruptorClose(t *testing.T) {
 
 		d.Close()
 
-		if !d.closed.Load() {
+		if d.writer.Value.Load()&disruptorClosed == 0 {
 			t.Error("Disruptor should be marked as closed")
 		}
 	})
@@ -388,7 +388,7 @@ func TestDisruptorConcurrency(t *testing.T) {
 
 		wg.Wait()
 
-		expectedWriter := int64(numGoroutines*numEntriesPerGoroutine - 1)
+		expectedWriter := uint64(numGoroutines * numEntriesPerGoroutine)
 		actualWriter := d.writer.Value.Load()
 		if actualWriter != expectedWriter {
 			t.Errorf("Expected writer at %d, got %d", expectedWriter, actualWriter)
@@ -407,7 +407,7 @@ func TestDisruptorBufferSize(t *testing.T) {
 	t.Run("buffer index mask", func(t *testing.T) {
 		// Test that the mask works correctly for wrapping
 		for i := range DefaultBufferSize * 2 {
-			expected := i & (DefaultBufferSize - 1)
+			expected := i % DefaultBufferSize
 			actual := i & (DefaultBufferSize - 1)
 			if actual != expected {
 				t.Errorf("For index %d: expected %d, got %d", i, expected, actual)

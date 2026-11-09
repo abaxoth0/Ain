@@ -23,7 +23,7 @@ poll for completion using 1 ms sleeps. Those sleeps, consumer wait strategies,
 and scheduling affect the measurement; the benchmark is not a per-message
 latency test. Consumers count entries without checking every payload's identity
 or order, so these runs do not establish delivery correctness. See the
-[Disruptor concurrency limitation](README.md#structs-disruptor).
+[Disruptor concurrency contract](README.md#structs-disruptor).
 
 Additional interpretation limits:
 
@@ -62,7 +62,7 @@ Record the commit, `go version`, OS, CPU, `GOMAXPROCS`, buffer capacities, paylo
 producer/consumer counts, and exact command with any reported measurement.
 The numeric suffix on a Go benchmark name describes `GOMAXPROCS`, not necessarily
 the machine's physical core count. A successful smoke run does not validate
-concurrent safety: Disruptor's `Publish` and `Consume` disable race instrumentation.
+concurrent safety: run the payload regression tests and race detector separately.
 
 ## Existing Python tools
 

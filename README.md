@@ -25,17 +25,20 @@ go get github.com/abaxoth0/Ain
 
 The Go examples below are standalone programs. Lifecycle and concurrency limits
 are described alongside each example; see also [SECURITY.md](SECURITY.md).
+The review findings, regression coverage, and tested environments are recorded in
+[VALIDATION.md](VALIDATION.md).
 
 ### `structs`: Disruptor
 
-Disruptor uses a preallocated ring buffer and atomic cursors. Pass `nil` to
+Disruptor uses a preallocated ring buffer, atomic reservation cursors, and per-slot
+readiness sequences. Publication is lock-free and allocation-free, supporting
+multiple concurrent publishers and one consumer. Pass `nil` to
 `NewDisruptor[T](conf)` for the default 65,536-slot buffer and 10 ms idle check
 interval. `NewDisruptorWithSize[T](size, conf)` returns a buffer and an error;
 `size` must be a power of two and at least 64. The fullness check leaves one slot
 unused. A custom `DisruptorConfig` sets `IdleCheckInterval` directly.
 
-This example publishes before consuming to avoid overlapping publication and
-consumption:
+This example publishes an entry and closes the buffer from its consumer:
 
 ```go
 package main
@@ -64,16 +67,18 @@ func main() {
 `Consume` blocks and invokes the handler synchronously. Use only one consumer:
 there is no coordination between multiple `Consume` calls. `Close` signals
 shutdown without waiting, is not idempotent, and prevents subsequent `Consume`
-calls. An already running consumer attempts to drain entries before returning;
-coordinate producers and wait for `Consume` to return yourself.
-
-Concurrent publication and consumption currently have a correctness limitation:
-`Publish` advances the writer cursor **before** assigning the buffer slot, so a
-consumer can observe a slot before its value is written. Multiple publishers can
-also expose unfinished earlier slots. The `//go:norace` directives on `Publish`
-and `Consume` suppress instrumentation. Passing race tests does not establish
-that these accesses are safe. Do not rely on concurrent delivery guarantees
-until this publication ordering is fixed.
+calls. An already running consumer drains all accepted entries before returning;
+wait for `Consume` to return yourself. A publication racing `Close` either reserves
+its slot before shutdown or is rejected. Close does not wait for in-flight
+publishers; the consumer waits for their payloads before completing its drain.
+Slots become readable only after their payloads are written, and are reused only
+after the handler returns. A paused publisher can delay ordered consumption and
+shutdown draining, while other publishers can fill remaining capacity. Keep
+referenced payload data immutable while it may be in use. Race instrumentation
+is enabled for both publication and consumption.
+`ConsumeWithReady(handler, ready)` invokes an optional readiness callback after
+entering the consumer and before processing records. It does not call the
+callback if the buffer was already closed; the callback must return promptly.
 
 ### `structs`: SyncQueue
 
@@ -102,11 +107,22 @@ func main() {
 ```
 
 `WaitTillEmpty` and `WaitTillNotEmpty` wait for a condition, with nonpositive
-timeouts meaning no timeout. They do not reserve elements or close the queue.
+timeouts meaning no timeout and expiration returning `errs.StatusTimeout`.
+`WaitTillEmptyContext(ctx)` and `WaitTillNotEmptyContext(ctx)` also observe context
+cancellation and deadlines, returning `context.Canceled` or
+`context.DeadlineExceeded`. If the requested queue condition holds when checked,
+the wait returns nil even if the context has ended. Waits recheck the condition
+under the queue mutex after every wakeup, including cancellation notifications.
+They do not reserve elements or close the queue, so a later Pop can still find
+the queue empty after a successful WaitTillNotEmpty.
+
 `PreserveAndPop` calls two separately locked methods, so it is not an atomic
-transaction. `RollBack` uses the zero value as the absence marker and cannot
-restore a preserved zero value. `UnwrapAndFlush` and `RollBack` do not notify
-condition waiters; avoid relying on them to wake waiting goroutines.
+transaction. The queue holds one preserved value, including zero, false, an empty
+string, or a nil pointer. Preserve on a nonempty queue replaces that value, and
+RollBack restores it to the front at most once. Coordinate preserve/pop/rollback
+sequences with other callers when transaction semantics are needed. RollBack wakes
+nonempty waiters when it restores an empty queue; UnwrapAndFlush wakes empty
+waiters when it removes the remaining elements.
 
 ### `structs`: Stacks
 
@@ -114,7 +130,18 @@ condition waiters; avoid relying on them to wake waiting goroutines.
 uses an initial capacity of 16 when given a nonpositive capacity. Neither is
 synchronized. Wrap a stack with `NewSyncStack` for mutex protection of individual
 method calls, and access the underlying stack only through that wrapper when
-sharing it.
+sharing it. `NewSyncStack` accepts pointer and value implementations of `Stack`
+and panics for nil implementations, including a nil interface or typed nil.
+
+`PopBatch(n)` returns up to n elements, top first, in the same order as repeated
+`Pop` calls. For example, after pushing `[1, 2, 3]`, `PopBatch(2)` returns `[3, 2]`.
+This changes DynamicStack's previous insertion-order behavior. Returned batches
+have independent slice storage, so later pushes and batch mutations cannot
+change one another, including through SyncStack. Element values are shallow
+copies; referenced objects remain shared. Custom Stack implementations must
+provide the same batch ownership and ordering. For n <= 0, PopBatch removes
+nothing and returns an empty slice with true; a positive n on an empty stack
+returns nil with false.
 
 ```go
 package main
@@ -141,11 +168,11 @@ func main() {
 ### `structs`: WorkerPool
 
 Tasks implement `Process()`. `NewWorkerPool(ctx, nil)` defaults to a batch size
-of 1 and a shutdown drain timeout of 1 second. Call `Start` once with a positive
+of 1 and a cancellation wait timeout of 1 second. Call `Start` once with a positive
 worker count; subsequent calls do nothing, even if the first count was zero.
 The queue is unbounded and task execution order is not guaranteed across workers.
 
-Track task completion explicitly when it matters:
+Successful cancellation waits for accepted work:
 
 ```go
 package main
@@ -157,35 +184,43 @@ import (
     "github.com/abaxoth0/Ain/structs"
 )
 
-type task struct{ done chan struct{} }
+type task struct{}
 
 func (t *task) Process() {
-    defer close(t.done)
     fmt.Println("task processed")
 }
 
 func main() {
     pool := structs.NewWorkerPool(context.Background(), nil)
     pool.Start(4)
-    done := make(chan struct{})
-    if err := pool.Push(&task{done: done}); err != nil {
+    if err := pool.Push(&task{}); err != nil {
         panic(err)
     }
-    <-done
     if err := pool.Cancel(); err != nil {
         panic(err)
     }
 }
 ```
 
-`Cancel` marks the pool canceled and signals its context; later `Push` calls
-return errors, and repeated `Cancel` calls return an error. Serialize cancellation
-with producers. Cancellation does not interrupt `Process`, wake workers blocked
-on an empty queue, or join all worker goroutines. Its wait group covers active
-normal batches, not all queued tasks or shutdown draining. `StopTimeout` is
-checked between drain batches and cannot interrupt a blocked task; drain errors
-are discarded. A successful `Cancel` does not guarantee that all tasks finished.
-Canceling the parent context alone does not set `IsCanceled` or reject `Push`.
+Explicit `Cancel` and parent-context cancellation both stop admission, wake idle
+workers, and drain accepted tasks. `IsCanceled` reflects either form of
+cancellation. Push can race cancellation: it either returns an error or accepts a
+task covered by shutdown, including a Push already in progress when the parent
+ends. Worker lifetimes include both normal processing and shutdown draining.
+Successful Cancel means every accepted task finished and all workers exited.
+
+`StopTimeout` bounds how long the first Cancel waits; expiration returns an error
+wrapping `errs.StatusTimeout`. It cannot interrupt Process, and accepted queued
+tasks continue draining in the background after a timeout. Keep resources used by
+tasks valid until `Done()` closes or `Wait(ctx)` returns nil. Wait only observes
+shutdown; its context limits that caller's wait and does not cancel the pool.
+It returns `ctx.Err()` if shutdown is still incomplete when that context ends.
+Completed shutdown takes precedence over a canceled wait context.
+
+The first explicit Cancel can join shutdown initiated by the parent; repeated
+Cancel calls return an error. Push may queue work before Start. If cancellation
+finds queued work without any workers, the pool creates one worker to finish that
+work. Start cannot restart a stopping or stopped pool.
 
 ### `logger`: Logging
 
@@ -214,19 +249,48 @@ For file logging, `NewFileLogger` requires a non-nil `*FileLoggerConfig`. Set
 `<ApplicationName>_<AppInstance>[<timestamp>].log`; `TimeLayout` defaults to
 `2006-01-02_15-04-05`. `SerializerProducer` defaults to a new `JSONSerializer`;
 provide a fresh serializer per factory call. Default output is one JSON object
-per line. `FilePerm` defaults to `0644` and is also passed to directory creation;
-configure directory permissions appropriate to your deployment.
+per line. `FilePerm` defaults to `0644` for regular files. `DirPerm` defaults to
+`0755` for new directories; existing directory permissions are unchanged. Both
+modes are subject to the process umask on POSIX systems. For private logs, set
+`FilePerm: 0600` and, if desired, `DirPerm: 0700`.
 
-Treat a `FileLogger` as a single-use instance: `Stop` closes its ring buffer and
-file, and `Start` does not recreate them. Stop producers before shutdown and
-serialize lifecycle calls. `Stop(true)` attempts to drain, sync, and close the
-file, but inherits the Disruptor and WorkerPool limitations above. Serialization
-failures discard entries and write errors are ignored; neither `Log` nor a
-successful `Stop` guarantees durable delivery. Overflow uses a worker pool and
-can reorder entries. Configure forwarding before logging; forwarding changes
-are not synchronized. Forwarded entries bypass the target's filtering and
-critical-level side effects. Entries and their metadata are shared by reference;
-keep them immutable while logging is in progress.
+`NewSource` uses the wrapped FileLogger's application name and instance when
+constructing entries, including entries queued before Start. Other loggers use
+the default identity. `NewLogEntry` keeps the default identity;
+`NewLogEntryWithConfig` uses the supplied identity. Logging and forwarding retain
+an entry's existing service and instance, even when the destination has different
+settings or the entry's identity fields are empty.
+
+Treat a `FileLogger` as a single-use instance. Start establishes consumer
+readiness before returning, so immediate Start/log/Stop is supported. Entries may
+be queued before Start; processing requires Init followed by Start. Stop closes
+admission, drains both the ring consumer and fallback workers, then syncs and
+closes their output. Calls arriving after shutdown starts are rejected.
+
+`StopTimeout` bounds each Stop caller's wait, including in non-strict mode. A
+timeout wraps `errs.StatusTimeout`; cleanup continues while the file remains open
+for active writers. A later Stop can wait again, and `Done()` closes only after
+writers exit and cleanup finishes. Completed Stop calls return the retained
+cleanup result without repeating sync or close. Strict Stop additionally reports
+processing and sync errors; sync failure does not skip closing the output.
+Start cannot restart a stopping or stopped instance.
+
+`Err()` reports a snapshot of failure counts and the first cause for each stage:
+admission, serialization, writing, consumer execution, sync, and close. This state
+uses bounded memory. `Errors()` provides up to 64 buffered notifications without
+blocking processing; notifications can be dropped when full, while Err retains
+the counts and first causes. The channel closes when cleanup completes. Log calls
+rejected after completion still update Err. Strict Stop includes these failures;
+non-strict Stop reports incomplete shutdown, consumer errors, and close errors.
+A successful strict Stop means admitted records were processed, written in full,
+and output sync/close succeeded. Stop cannot protect against later disk failure.
+
+Failed records are not retried; a partial write may leave an incomplete record.
+Log returns no delivery status, so observe Errors/Err and check strict Stop.
+Overflow uses a worker pool and can reorder entries. Configure forwarding before
+logging; forwarding changes are not synchronized. Forwarded entries bypass the
+target's filtering and critical-level side effects. Entries and their metadata
+are shared by reference; keep them immutable while logging is in progress.
 
 `FileLogger.Stop(strict bool)` differs from `ConcurrentLogger.Stop()`, so
 `*FileLogger` does not implement `ConcurrentLogger`.
@@ -287,13 +351,11 @@ func main() {
 }
 ```
 
-After a failure, retries run in a goroutine while the caller waits. Backoff is
+All attempts run synchronously in the caller, and no callback runs after
+`Retry` returns. Callback panics propagate to the caller. Backoff is
 `2^attempts * BackoffScale` plus 0–9 ms of jitter, capped by `MaxBackoff`.
 Currently, a zero `MaxBackoff` clamps the delay to zero. The implementation may
 mutate a zero `BackoffScale`, so use a separate configuration per concurrent call.
-There is also an attempt-limit bug: after returning the last error, the retry
-goroutine continues, can call the operation again, and can block forever sending
-a result. Account for this before using retries for operations with side effects.
 
 Other helpers include `Ternary` (both value arguments are evaluated), `MapKeys`,
 `MapValues`, and `MapPop` (returns a key's value and deletes the key, or returns the zero value

@@ -23,6 +23,26 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('pull_request', events)
         self.assertFalse((events['pull_request'] or {}).get('branches-ignore'))
 
+    def test_suite_covers_supported_platforms_and_go_versions(self):
+        test = self.ci['jobs']['test']
+        matrix = test['strategy']['matrix']
+        self.assertTrue({'ubuntu-latest', 'windows-latest', 'macos-latest'} <= set(matrix['os']))
+        self.assertTrue({'1.23.x', 'stable'} <= set(matrix['go']))
+        self.assertEqual(test['runs-on'], '${{ matrix.os }}')
+
+    def test_coverage_command_uses_the_same_shell_on_all_platforms(self):
+        step = next(step for step in self.ci['jobs']['test']['steps']
+                    if step.get('name') == 'Run tests')
+        self.assertEqual(step.get('shell'), 'bash')
+        self.assertIn('-coverprofile=coverage.out', step['run'])
+        self.assertIn('-race', step['run'])
+
+    def test_linter_supports_the_stable_go_export_format(self):
+        step = next(step for step in self.ci['jobs']['lint']['steps']
+                    if step.get('uses', '').startswith('golangci/golangci-lint-action@'))
+        version = tuple(map(int, step['with']['version'].removeprefix('v').split('.')))
+        self.assertGreaterEqual(version, (2, 15, 0))
+
     def test_release_runs_all_ci_checks_before_publishing(self):
         self.assertIn('workflow_call', self.ci['on'])
         publish = self.release['jobs']['release']

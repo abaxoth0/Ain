@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Run the CI race suite on Linux, Windows, and macOS with Go 1.23.x and stable.
+- Record integrated verification of all 15 review findings, their regression tests, and platform coverage in VALIDATION.md.
+
 ### Fixed
 
+- Use golangci-lint 2.15.0 for compatibility with Go 1.27 in CI.
+- Release file handles in logger test fixtures before temporary-directory cleanup on Windows.
+- Return independent DynamicStack batches in top-first order, matching StaticStack and repeated Pop calls, including through SyncStack.
+- Accept valid value implementations in NewSyncStack and consistently reject nil implementations without reflection panics.
+- Use FileLogger application identity for Source entries while preserving explicit and forwarded entry identities.
+- Expose FileLogger admission, serialization, write, and cleanup failures through Err/Errors and strict Stop, including short writes.
+- Synchronize FileLogger consumer startup, join every writer before closing output, and allow shutdown cleanup to finish after timeouts or sync errors.
+- Coordinate WorkerPool admission and parent cancellation, wake idle workers, join all accepted work on successful shutdown, and expose completion after cancellation timeouts.
+- Make queue timeouts reliable, add context-aware waits, notify waiters after rollback and flush, and preserve zero-valued rollback elements.
+- Create usable log directories with a separate DirPerm setting (default 0755), preserving FilePerm restrictions and existing directory modes.
+- Stop Retry at its attempt limit without further callbacks or a leaked goroutine; execute retries synchronously.
+- Restore lock-free, allocation-free Disruptor publication with per-slot readiness, coordinate Close with reservations, and restore race instrumentation.
 - Streamline benchmark guidance and README links.
 - Correct README constructors and lifecycle examples, document concurrency and shutdown limits, and remove unsupported benchmark claims.
 - Align contributor guidance and security notes with the implementation and repository conventions.
