@@ -25,6 +25,8 @@ go get github.com/abaxoth0/Ain
 
 The Go examples below are standalone programs. Lifecycle and concurrency limits
 are described alongside each example; see also [SECURITY.md](SECURITY.md).
+The review findings, regression coverage, and tested environments are recorded in
+[VALIDATION.md](VALIDATION.md).
 
 ### `structs`: Disruptor
 
@@ -270,8 +272,8 @@ timeout wraps `errs.StatusTimeout`; cleanup continues while the file remains ope
 for active writers. A later Stop can wait again, and `Done()` closes only after
 writers exit and cleanup finishes. Completed Stop calls return the retained
 cleanup result without repeating sync or close. Strict Stop additionally reports
-processing and sync errors; sync failure does not skip closing the output. Start cannot restart
-a stopping or stopped instance.
+processing and sync errors; sync failure does not skip closing the output.
+Start cannot restart a stopping or stopped instance.
 
 `Err()` reports a snapshot of failure counts and the first cause for each stage:
 admission, serialization, writing, consumer execution, sync, and close. This state
@@ -285,10 +287,10 @@ and output sync/close succeeded. Stop cannot protect against later disk failure.
 
 Failed records are not retried; a partial write may leave an incomplete record.
 Log returns no delivery status, so observe Errors/Err and check strict Stop.
-Overflow uses a worker pool and can reorder entries. Configure forwarding before logging; forwarding changes
-are not synchronized. Forwarded entries bypass the target's filtering and
-critical-level side effects. Entries and their metadata are shared by reference;
-keep them immutable while logging is in progress.
+Overflow uses a worker pool and can reorder entries. Configure forwarding before
+logging; forwarding changes are not synchronized. Forwarded entries bypass the
+target's filtering and critical-level side effects. Entries and their metadata
+are shared by reference; keep them immutable while logging is in progress.
 
 `FileLogger.Stop(strict bool)` differs from `ConcurrentLogger.Stop()`, so
 `*FileLogger` does not implement `ConcurrentLogger`.

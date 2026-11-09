@@ -13,7 +13,7 @@ func readFileLoggerEntries(t *testing.T, l *FileLogger) map[string]LogEntry {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	entries := map[string]LogEntry{}
 	decoder := json.NewDecoder(file)
 	for {

@@ -84,7 +84,7 @@ func assertFileLoggerPayloads(t *testing.T, name string, total int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	decoder := json.NewDecoder(file)
 	seen := make(map[string]int, total)
 	for {

@@ -99,7 +99,7 @@ func TestFileLoggerStopTimeoutCanFinishCleanup(t *testing.T) {
 				t.Fatalf("retry could not finish cleanup: %v", err)
 			}
 		}
-		if _, err := l.logFile.Stat(); !errors.Is(err, os.ErrClosed) {
+		if _, err := l.logFile.Write(nil); !errors.Is(err, os.ErrClosed) {
 			t.Errorf("completed shutdown did not close the file: %v", err)
 		}
 		assertFileLoggerPayloads(t, l.logFile.Name(), 1)
@@ -143,7 +143,7 @@ func TestFileLoggerCleanupRetainsSyncAndCloseErrors(t *testing.T) {
 		if err := l.Stop(true); !errors.Is(err, syncErr) || (closeFailure && !errors.Is(err, closeErr)) {
 			t.Errorf("strict Stop lost cleanup failures: %v", err)
 		}
-		if _, err := l.logFile.Stat(); !errors.Is(err, os.ErrClosed) {
+		if _, err := l.logFile.Write(nil); !errors.Is(err, os.ErrClosed) {
 			t.Errorf("sync error skipped closing the file: %v", err)
 		}
 		if err := l.Stop(false); (err != nil) != closeFailure || (closeFailure && !errors.Is(err, closeErr)) {
@@ -172,7 +172,7 @@ func TestFileLoggerConsumerStartFailureCleansUp(t *testing.T) {
 	if err := l.Stop(true); err == nil || !errors.Is(err, l.consumerErr) {
 		t.Errorf("Stop lost consumer startup error: %v", err)
 	}
-	if _, err := l.logFile.Stat(); !errors.Is(err, os.ErrClosed) {
+	if _, err := l.logFile.Write(nil); !errors.Is(err, os.ErrClosed) {
 		t.Errorf("consumer failure leaked the file: %v", err)
 	}
 	select {

@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Run the CI race suite on Linux, Windows, and macOS with Go 1.23.x and stable.
+- Record integrated verification of all 15 review findings, their regression tests, and platform coverage in VALIDATION.md.
+
 ### Fixed
 
+- Release file handles in logger test fixtures before temporary-directory cleanup on Windows.
 - Return independent DynamicStack batches in top-first order, matching StaticStack and repeated Pop calls, including through SyncStack.
 - Accept valid value implementations in NewSyncStack and consistently reject nil implementations without reflection panics.
 - Use FileLogger application identity for Source entries while preserving explicit and forwarded entry identities.

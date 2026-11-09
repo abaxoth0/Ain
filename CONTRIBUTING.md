@@ -67,6 +67,10 @@ Run the payload identity and wraparound regressions alongside race checks;
 operation counts alone do not establish correct delivery. Review the contracts in
 [README.md](README.md) when adding concurrent code.
 
+CI runs the race suite on Linux, Windows, and macOS with Go 1.23.x and stable.
+See [VALIDATION.md](VALIDATION.md) for the review checklist and bounded stress
+commands. Keep that checklist current when changing the repaired contracts.
+
 ### Code Quality
 
 Before committing, ensure your code follows the project standards:

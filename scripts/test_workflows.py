@@ -23,6 +23,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('pull_request', events)
         self.assertFalse((events['pull_request'] or {}).get('branches-ignore'))
 
+    def test_suite_covers_supported_platforms_and_go_versions(self):
+        test = self.ci['jobs']['test']
+        matrix = test['strategy']['matrix']
+        self.assertTrue({'ubuntu-latest', 'windows-latest', 'macos-latest'} <= set(matrix['os']))
+        self.assertTrue({'1.23.x', 'stable'} <= set(matrix['go']))
+        self.assertEqual(test['runs-on'], '${{ matrix.os }}')
+
     def test_release_runs_all_ci_checks_before_publishing(self):
         self.assertIn('workflow_call', self.ci['on'])
         publish = self.release['jobs']['release']

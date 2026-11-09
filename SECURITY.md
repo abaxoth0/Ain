@@ -64,12 +64,15 @@ Other implementation limits relevant to callers:
   waiting for file output.
 - Logger configuration, forwarding changes, shared metadata, and the global
   well-known metadata property registry require caller coordination.
+- Stack batches own their slice storage, while element values are shallow copies.
+  SyncStack protects individual methods; access its underlying stack through the
+  wrapper and coordinate shared mutable payloads separately.
 - Retry runs callbacks synchronously and stops at its attempt limit. It has no
   context cancellation and cannot interrupt a running callback.
 
-See [README.md](README.md) for API-specific usage and lifecycle details. These
-limitations require implementation fixes; documentation and passing tests do not
-remove them.
+See [README.md](README.md) for API-specific usage and lifecycle details, and
+[VALIDATION.md](VALIDATION.md) for review regressions and platform verification.
+The remaining contracts above still apply when validation passes.
 
 ### Dependencies and data handling
 

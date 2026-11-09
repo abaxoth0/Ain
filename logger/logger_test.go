@@ -475,6 +475,7 @@ func TestFileLogger(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
+		cleanupFileLogger(t, logger)
 		if err := logger.Init(); err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -526,6 +527,7 @@ func TestFileLogger(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
+		cleanupFileLogger(t, logger)
 		if err := logger.Init(); err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -684,6 +686,7 @@ func TestLogTask(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
+		cleanupFileLogger(t, logger)
 		if err := logger.Init(); err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}

@@ -12,12 +12,13 @@ permissions:
 
 jobs:
   test:
-    name: Test (Go ${{ matrix.go }})
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }}, Go ${{ matrix.go }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         go: ['1.23.x', stable]
     steps:
       - uses: actions/checkout@v7
@@ -28,7 +29,7 @@ jobs:
       - name: Run tests
         run: go test -v -race -timeout=10m -coverprofile=coverage.out -covermode=atomic ./...
       - name: Upload coverage to Codecov
-        if: matrix.go == 'stable'
+        if: matrix.go == 'stable' && matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.out
