@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Use golangci-lint 2.15.0 for compatibility with Go 1.27 in CI.
 - Release file handles in logger test fixtures before temporary-directory cleanup on Windows.
 - Return independent DynamicStack batches in top-first order, matching StaticStack and repeated Pop calls, including through SyncStack.
 - Accept valid value implementations in NewSyncStack and consistently reject nil implementations without reflection panics.

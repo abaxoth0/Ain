@@ -55,8 +55,7 @@ func (w yieldSeqWait) WaitForChange(seq uint64, cursor *atomic.Uint64, done <-ch
 type Disruptor[T any] struct {
 	buffer     []T
 	available  []atomic.Uint64
-	bufferSize int       // must be power of 2
-	bufferMask uint64    // Mask for modulo operations (bufferSize - 1)
+	bufferMask uint64    // Size minus one, used for capacity and slot indices
 	writer     sequence  // Reservation count plus shutdown bit
 	reader     sequence  // Completed consumption count
 	waiter     seqWaiter // Wait strategy for consumers
@@ -106,7 +105,6 @@ func NewDisruptorWithSize[T any](size int, conf *DisruptorConfig) (*Disruptor[T]
 		},
 		buffer:     make([]T, size),
 		available:  make([]atomic.Uint64, size),
-		bufferSize: size,
 		bufferMask: uint64(size - 1),
 		done:       make(chan struct{}),
 	}
@@ -144,7 +142,7 @@ func (d *Disruptor[T]) Publish(entry T) bool {
 		if writer&disruptorClosed != 0 {
 			return false
 		}
-		if (writer-d.reader.Value.Load())&disruptorSequenceMask >= uint64(d.bufferSize-1) {
+		if (writer-d.reader.Value.Load())&disruptorSequenceMask >= d.bufferMask {
 			if d.writer.Value.Load() != writer {
 				continue
 			}

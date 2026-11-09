@@ -6,8 +6,8 @@ test, CI, and documentation changes in this commit. The original review covered
 
 All 15 findings have implemented fixes and passing permanent regressions in the
 tested environments. This record covers correctness and resource ownership;
-benchmark smoke results do not establish performance rankings. Native Windows
-and macOS execution remains open pending CI, as detailed below.
+benchmark smoke results do not establish performance rankings. The CI follow-up
+below records native runner results and corrections to the initial workflow.
 
 ## Finding checklist
 
@@ -77,7 +77,7 @@ on the validation date.
 | Linux/amd64, official Go 1.27.3 | Full atomic-coverage race suite, shuffled race stress suite, vet, and build passed |
 | Linux/amd64, installed Go 1.27.3-X:nodwarf5 | Full ordinary/coverage suite, race suite, focused shuffled stress checks, vet, build, and benchmark smoke passed |
 | Linux/386, installed Go toolchain, CGO disabled | Full suite passed natively; execution needed to run outside the sandbox's syscall filter |
-| Windows/amd64, Wine 11.21, CGO disabled | Full Windows suite compiled and passed under Wine after test-fixture corrections; Windows race detector and native Windows execution were not run locally |
+| Windows/amd64, Wine 11.21 | Full suite passed with CGO disabled, then with race/atomic coverage enabled using MinGW and official Go 1.27.3; native Windows results remain pending CI |
 | macOS/amd64 and macOS/arm64, CGO disabled | All package test binaries cross-compiled; execution and race checks were not run locally |
 
 POSIX directory/file permission assertions ran without root privileges on Linux.
@@ -115,8 +115,9 @@ git ls-files -z '*.go' | xargs -0 gofmt -l
 Use `GOTOOLCHAIN=go1.23.0`, `go1.23.12`, or `go1.27.3` with
 `GOMODCACHE=/tmp/ain-phase6-modcache` to select downloaded toolchains. Both the
 minimum-version and stable-version checks use the same module without changing
-go.mod. Format checks produced no paths. All seven workflow regression tests
-passed, including the Linux/Windows/macOS and Go-version matrix check.
+go.mod. Format checks produced no paths. All nine workflow regression tests
+passed, including platform/version coverage, a shared test shell, and the tested
+minimum linter version.
 
 Local golangci-lint 2.15.0 reported zero issues for the tracked Go packages:
 
@@ -127,7 +128,10 @@ GOLANGCI_LINT_CACHE=/tmp/ain-phase6-lint-cache golangci-lint run --timeout=2m ./
 The ignored local `cmd/` example is included by Go's `./...` expansion but is absent
 from a clean Git checkout. It was included in full test/build runs; its existing
 unchecked calls and unused function were excluded from the tracked-package lint
-result. CI pins golangci-lint 2.13.2, which was not run locally.
+result. CI now pins golangci-lint 2.15.0; its official release binary was also
+tested locally against the official Go 1.27.3 toolchain. The archive SHA-256
+matched the GitHub release asset digest. CI-pinned gosec 2.30.0 reproduced G115
+before the capacity comparison cleanup and reported zero findings afterward.
 
 Full coverage with the race detector was common 55.9%, logger 93.4%, structs 98.3%,
 and errs 0.0% (no tests). These percentages describe this run and are not the
@@ -141,15 +145,17 @@ confirms compilation; its printed package results do not mean tests executed.
 Windows used `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test` with a Wine execution
 adapter and `-count=1 -timeout=60s`. Linux/386 used
 `GOARCH=386 CGO_ENABLED=0 go test -count=1 -timeout=60s ./...`.
+The CI follow-up repeated Windows tests with `CGO_ENABLED=1`,
+`CC=x86_64-w64-mingw32-gcc`, `-race`, `-covermode=atomic`, and a coverage profile;
+all four tracked packages passed under Wine.
 
 ## Open verification and remaining limits
 
-Native Windows and macOS execution, including their race detectors, remains
-unverified locally. The CI test matrix now runs Ubuntu, Windows, and macOS at
-Go 1.23.x and stable, with coverage uploaded only from Ubuntu stable. Its first
-remote run remains pending; no push, remote Actions run, or release was performed.
-Other architectures and operating systems are outside this validation record.
-CodeQL, gosec, actionlint, the CI-pinned linter, and GoReleaser were not run here.
+Native Windows and macOS execution is unavailable locally; remote runner results
+are recorded below. The CI matrix runs Ubuntu, Windows, and macOS at Go 1.23.x and
+stable, with coverage uploaded only from Ubuntu stable. Other architectures and
+operating systems are outside this validation record. CodeQL, actionlint, and
+GoReleaser were not run locally. No release was performed.
 
 The repaired APIs retain their documented contracts: one Disruptor consumer and
 immutable referenced payloads; separately coordinated queue preservation
@@ -159,3 +165,27 @@ the caller's wait, while accepted work and safe resource cleanup continue. Faile
 log records are observable but are not retried, and partial writes can leave an
 incomplete record. Fatal logging does not flush asynchronous output. See
 [README.md](README.md) and [SECURITY.md](SECURITY.md) for these usage requirements.
+
+
+## CI follow-up
+
+The [initial PR #14 run](https://github.com/abaxoth0/Ain/actions/runs/42685003820)
+passed native Ubuntu and macOS race/coverage suites on both Go 1.23.x and stable,
+plus Build and Workflows. Four jobs failed:
+
+- Both Windows jobs failed before executing tests: PowerShell split the coverage
+  argument and Go attempted to load `.out` as a package. The test step now selects
+  Bash explicitly on every platform; a workflow regression guards that choice.
+- golangci-lint 2.13.2 could not decode Go 1.27.3 export data (version 5). The
+  workflow now pins the locally verified official 2.15.0 binary; another regression
+  prevents restoring an older, unverified pin.
+- gosec 2.30.0 flagged the signed capacity conversion in Disruptor.Publish. The
+  comparison now uses the existing unsigned bufferMask, computed as size minus one
+  after constructor validation. Capacity and wraparound behavior stay covered by
+  the existing regressions, with no new suppression or publication allocation.
+
+Local verification after these corrections passed the full race suite at Go
+1.23.0 and 1.27.3, vet, build, five Disruptor race repetitions at GOMAXPROCS 1 and 4,
+all nine workflow tests, the official pinned linter, and gosec with zero findings.
+The Windows race/coverage suite also passed under Wine with official Go 1.27.3.
+Native Windows CI verification remains pending the corrected workflow's next run.
